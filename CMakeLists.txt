@@ -9,6 +9,7 @@ include_directories(
         include
 )
 
+set(LIBRAW_PATH ${CMAKE_CURRENT_SOURCE_DIR}/LibRaw)
 add_subdirectory(LibRaw-cmake)
 # add_subdirectory(rawspeed)
 

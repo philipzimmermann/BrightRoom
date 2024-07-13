@@ -26,7 +26,7 @@ void load_raw()
     iProcessor.raw2image();
 
     // And let us print its dump; the data are accessible through data fields of the class
-    for (int i = 0; i < iProcessor.imgdata.sizes.iwidth * iProcessor.imgdata.sizes.iheight; i++)
+    for (int i = 0; i < 100; i++)
         printf("i=%d R=%d G=%d B=%d G2=%d\n",
                i,
                iProcessor.imgdata.image[i][0],
