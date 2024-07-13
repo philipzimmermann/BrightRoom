@@ -1,0 +1,9 @@
+[submodule "rawspeed"]
+	path = rawspeed
+	url = git@github.com:darktable-org/rawspeed.git
+[submodule "LibRaw"]
+	path = LibRaw
+	url = https://github.com/LibRaw/LibRaw
+[submodule "LibRaw-cmake"]
+	path = LibRaw-cmake
+	url = https://github.com/LibRaw/LibRaw-cmake

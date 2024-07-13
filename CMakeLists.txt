@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.0.0)
-project(raw_editor VERSION 0.1.0 LANGUAGES C CXX)
+project(raw_editor 
+        VERSION 0.1.0 
+        LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -7,14 +9,22 @@ include_directories(
         include
 )
 
+add_subdirectory(LibRaw-cmake)
+# add_subdirectory(rawspeed)
+
 add_library(${PROJECT_NAME}_lib
         src/loader.cpp
         )
 
+target_link_libraries(${PROJECT_NAME}_lib
+        PRIVATE libraw::libraw
+)
+
+
 add_executable(${PROJECT_NAME} src/main.cpp)
 
 target_link_libraries(${PROJECT_NAME}
-        ${PROJECT_NAME}_lib
+        PRIVATE ${PROJECT_NAME}_lib
         )
 
 
