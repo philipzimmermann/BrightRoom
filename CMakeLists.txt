@@ -1,9 +1,18 @@
 cmake_minimum_required(VERSION 3.0.0)
-project(raw_editor 
-        VERSION 0.1.0 
-        LANGUAGES CXX)
+
+project(raw_editor VERSION 0.1.0 LANGUAGES CXX)
+
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTOUIC ON)
+
+find_package(Qt6 REQUIRED COMPONENTS Widgets)
+find_package (JPEG REQUIRED)
+find_package(OpenCV REQUIRED )
 
 include_directories(
         include
@@ -19,6 +28,8 @@ add_library(${PROJECT_NAME}_lib
 
 target_link_libraries(${PROJECT_NAME}_lib
         PRIVATE libraw::libraw
+        PRIVATE Qt6::Widgets
+        ${OpenCV_LIBS}
 )
 
 
