@@ -5,6 +5,7 @@
 
 int main(int argc, char* argv[]) {
   printf("Hello, from raw_editor!\n");
+  load_raw();
   QApplication app(argc, argv);
   QGuiApplication::setApplicationDisplayName(MainWindow::tr("Image Viewer"));
   MainWindow main_window;

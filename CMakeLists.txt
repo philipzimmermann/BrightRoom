@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0.0)
+cmake_minimum_required(VERSION 3.13.0)
 
 project(raw_editor VERSION 0.1.0 LANGUAGES CXX)
 
@@ -18,29 +18,13 @@ set(LIBRAW_PATH ${CMAKE_CURRENT_SOURCE_DIR}/LibRaw)
 add_subdirectory(LibRaw-cmake)
 # add_subdirectory(rawspeed)
 
-add_library(${PROJECT_NAME}_lib
-        src/loader.cpp
-        src/main_window.cpp
-        include/loader.h
-        include/main_window.h
-        )
+add_subdirectory(src/app)
 
-target_include_directories(${PROJECT_NAME}_lib
-        PUBLIC include
-)
+add_subdirectory(src/lib)
 
-target_link_libraries(${PROJECT_NAME}_lib
-        PRIVATE libraw::libraw
-        PUBLIC Qt6::Widgets
-        ${OpenCV_LIBS}
-)
-
-
-add_executable(${PROJECT_NAME} src/main.cpp)
-
-target_link_libraries(${PROJECT_NAME}
-        PRIVATE ${PROJECT_NAME}_lib
-        )
+target_link_libraries(${PROJECT_NAME} PRIVATE
+        ${PROJECT_NAME}_lib
+        Qt6::Widgets)
 
 
 #CTest
