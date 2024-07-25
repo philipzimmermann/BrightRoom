@@ -14,21 +14,24 @@ find_package(Qt6 REQUIRED COMPONENTS Widgets)
 find_package (JPEG REQUIRED)
 find_package(OpenCV REQUIRED )
 
-include_directories(
-        include
-)
-
 set(LIBRAW_PATH ${CMAKE_CURRENT_SOURCE_DIR}/LibRaw)
 add_subdirectory(LibRaw-cmake)
 # add_subdirectory(rawspeed)
 
 add_library(${PROJECT_NAME}_lib
         src/loader.cpp
+        src/main_window.cpp
+        include/loader.h
+        include/main_window.h
         )
+
+target_include_directories(${PROJECT_NAME}_lib
+        PUBLIC include
+)
 
 target_link_libraries(${PROJECT_NAME}_lib
         PRIVATE libraw::libraw
-        PRIVATE Qt6::Widgets
+        PUBLIC Qt6::Widgets
         ${OpenCV_LIBS}
 )
 
