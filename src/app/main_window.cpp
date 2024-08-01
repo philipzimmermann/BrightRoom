@@ -1,4 +1,7 @@
 #include "main_window.h"
+#include <qimage.h>
+
+#include "raw_loader.h"
 
 #include <QApplication>
 #include <QClipboard>
@@ -17,6 +20,7 @@
 #include <QScrollBar>
 #include <QStandardPaths>
 #include <QStatusBar>
+#include <iostream>
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent), imageLabel(new QLabel), scrollArea(new QScrollArea) {
@@ -34,7 +38,7 @@ MainWindow::MainWindow(QWidget* parent)
   resize(QGuiApplication::primaryScreen()->availableSize() * 3 / 5);
 }
 
-bool MainWindow::loadFile(const QString& fileName) {
+bool MainWindow::loadImage(const QString& fileName) {
   QImageReader reader(fileName);
   reader.setAutoTransform(true);
   const QImage newImage = reader.read();
@@ -46,11 +50,39 @@ bool MainWindow::loadFile(const QString& fileName) {
     return false;
   }
   //! [2]
-
   setImage(newImage);
-
   setWindowFilePath(fileName);
+  const QString message = tr("Opened \"%1\", %2x%3, Depth: %4")
+                              .arg(QDir::toNativeSeparators(fileName))
+                              .arg(image.width())
+                              .arg(image.height())
+                              .arg(image.depth());
+  statusBar()->showMessage(message);
+  return true;
+}
 
+bool MainWindow::loadRaw(const QString& fileName) {
+  std::cout << "0" << std::endl;
+  raw::RawLoader loader{};
+  std::cout << "01" << std::endl;
+
+  auto raw_file = loader.LoadRaw(fileName.toStdString());
+  std::cout << "1" << std::endl;
+
+  const auto& thumbnail = raw_file.thumbnail;
+  std::cout << "2" << std::endl;
+
+  const QImage newImage(thumbnail.pixels, thumbnail.width, thumbnail.height,
+                        QImage::Format::Format_RGB888);
+  std::cout << "3" << std::endl;
+  if (newImage.isNull()) {
+    QMessageBox::information(this, QGuiApplication::applicationDisplayName(),
+                             tr("Cannot load %1: %2"));
+    return false;
+  }
+  //! [2]
+  setImage(newImage);
+  setWindowFilePath(fileName);
   const QString message = tr("Opened \"%1\", %2x%3, Depth: %4")
                               .arg(QDir::toNativeSeparators(fileName))
                               .arg(image.width())
@@ -124,12 +156,18 @@ static void initializeImageFileDialog(QFileDialog& dialog,
     dialog.setDefaultSuffix("jpg");
 }
 
+static void initializeLoadRawFileDialog(QFileDialog& dialog) {
+  QStringList mimeTypeFilters;
+  dialog.setNameFilter(dialog.tr("Raw Images (*.ORF *.RAW)"));
+  dialog.setAcceptMode(QFileDialog::AcceptOpen);
+}
+
 void MainWindow::open() {
-  QFileDialog dialog(this, tr("Open File"));
-  initializeImageFileDialog(dialog, QFileDialog::AcceptOpen);
+  QFileDialog dialog(this, tr("Open RAW File"));
+  initializeLoadRawFileDialog(dialog);
 
   while (dialog.exec() == QDialog::Accepted &&
-         !loadFile(dialog.selectedFiles().constFirst())) {}
+         !loadRaw(dialog.selectedFiles().constFirst())) {}
 }
 //! [1]
 

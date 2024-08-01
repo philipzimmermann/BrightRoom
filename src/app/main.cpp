@@ -1,13 +1,12 @@
 #include <stdio.h>
 #include <QApplication>
-#include "loader.h"
 #include "main_window.h"
 
 int main(int argc, char* argv[]) {
   printf("Hello, from raw_editor!\n");
-  load_raw();
+  //load_raw();
   QApplication app(argc, argv);
-  QGuiApplication::setApplicationDisplayName(MainWindow::tr("Image Viewer"));
+  QGuiApplication::setApplicationDisplayName(MainWindow::tr("BrightRoom"));
   MainWindow main_window;
   main_window.show();
   return app.exec();

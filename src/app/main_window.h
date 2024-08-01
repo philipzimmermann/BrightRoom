@@ -10,7 +10,8 @@ class MainWindow : public QMainWindow {
 
  public:
   MainWindow(QWidget* parent = nullptr);
-  bool loadFile(const QString&);
+  bool loadImage(const QString&);
+  bool loadRaw(const QString&);
 
  private slots:
   void open();
@@ -37,10 +38,6 @@ class MainWindow : public QMainWindow {
   QLabel* imageLabel;
   QScrollArea* scrollArea;
   double scaleFactor = 1;
-
-#if defined(QT_PRINTSUPPORT_LIB) && QT_CONFIG(printer)
-  QPrinter printer;
-#endif
 
   QAction* saveAsAct;
   QAction* printAct;
