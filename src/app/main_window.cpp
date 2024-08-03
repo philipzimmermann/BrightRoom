@@ -33,12 +33,14 @@ MainWindow::MainWindow(QWidget* parent)
   scrollArea->setVisible(false);
   setCentralWidget(scrollArea);
 
-  createActions();
+  CreateActions();
 
   resize(QGuiApplication::primaryScreen()->availableSize() * 3 / 5);
+
+  LoadRaw("/home/philip/workspace/cpp/BrightRoom/examples/P1190134.ORF");
 }
 
-bool MainWindow::loadImage(const QString& fileName) {
+bool MainWindow::LoadImage(const QString& fileName) {
   QImageReader reader(fileName);
   reader.setAutoTransform(true);
   const QImage newImage = reader.read();
@@ -50,7 +52,7 @@ bool MainWindow::loadImage(const QString& fileName) {
     return false;
   }
   //! [2]
-  setImage(newImage);
+  SetImage(newImage);
   setWindowFilePath(fileName);
   const QString message = tr("Opened \"%1\", %2x%3, Depth: %4")
                               .arg(QDir::toNativeSeparators(fileName))
@@ -61,27 +63,22 @@ bool MainWindow::loadImage(const QString& fileName) {
   return true;
 }
 
-bool MainWindow::loadRaw(const QString& fileName) {
-  std::cout << "0" << std::endl;
+bool MainWindow::LoadRaw(const QString& fileName) {
   raw::RawLoader loader{};
-  std::cout << "01" << std::endl;
-
   auto raw_file = loader.LoadRaw(fileName.toStdString());
-  std::cout << "1" << std::endl;
-
   const auto& thumbnail = raw_file.thumbnail;
-  std::cout << "2" << std::endl;
 
   const QImage newImage(thumbnail.pixels, thumbnail.width, thumbnail.height,
                         QImage::Format::Format_RGB888);
-  std::cout << "3" << std::endl;
+
+  // const QImage newImage(raw_file.rawdata,raw_file.height,raw_file.width,QImage::Format::Format_RGB16);
   if (newImage.isNull()) {
     QMessageBox::information(this, QGuiApplication::applicationDisplayName(),
                              tr("Cannot load %1: %2"));
     return false;
   }
-  //! [2]
-  setImage(newImage);
+  SetImage(newImage);
+
   setWindowFilePath(fileName);
   const QString message = tr("Opened \"%1\", %2x%3, Depth: %4")
                               .arg(QDir::toNativeSeparators(fileName))
@@ -92,7 +89,7 @@ bool MainWindow::loadRaw(const QString& fileName) {
   return true;
 }
 
-void MainWindow::setImage(const QImage& newImage) {
+void MainWindow::SetImage(const QImage& newImage) {
   image = newImage;
   if (image.colorSpace().isValid())
     image.convertToColorSpace(QColorSpace::SRgb);
@@ -101,9 +98,9 @@ void MainWindow::setImage(const QImage& newImage) {
   scaleFactor = 1.0;
 
   scrollArea->setVisible(true);
-  printAct->setEnabled(true);
+  // printAct->setEnabled(true);
   fitToWindowAct->setEnabled(true);
-  updateActions();
+  UpdateActions();
 
   if (!fitToWindowAct->isChecked())
     imageLabel->adjustSize();
@@ -111,7 +108,7 @@ void MainWindow::setImage(const QImage& newImage) {
 
 //! [4]
 
-bool MainWindow::saveFile(const QString& fileName) {
+bool MainWindow::SaveFile(const QString& fileName) {
   QImageWriter writer(fileName);
 
   if (!writer.write(image)) {
@@ -162,47 +159,45 @@ static void initializeLoadRawFileDialog(QFileDialog& dialog) {
   dialog.setAcceptMode(QFileDialog::AcceptOpen);
 }
 
-void MainWindow::open() {
+void MainWindow::Open() {
   QFileDialog dialog(this, tr("Open RAW File"));
   initializeLoadRawFileDialog(dialog);
 
   while (dialog.exec() == QDialog::Accepted &&
-         !loadRaw(dialog.selectedFiles().constFirst())) {}
+         !LoadRaw(dialog.selectedFiles().constFirst())) {}
 }
 //! [1]
 
-void MainWindow::saveAs() {
+void MainWindow::SaveAs() {
   QFileDialog dialog(this, tr("Save File As"));
   initializeImageFileDialog(dialog, QFileDialog::AcceptSave);
 
   while (dialog.exec() == QDialog::Accepted &&
-         !saveFile(dialog.selectedFiles().constFirst())) {}
+         !SaveFile(dialog.selectedFiles().constFirst())) {}
 }
 
-//! [5]
-void MainWindow::print()
-//! [5] //! [6]
-{
-  Q_ASSERT(!imageLabel->pixmap(Qt::ReturnByValue).isNull());
-#if defined(QT_PRINTSUPPORT_LIB) && QT_CONFIG(printdialog)
-  //! [6] //! [7]
-  QPrintDialog dialog(&printer, this);
-  //! [7] //! [8]
-  if (dialog.exec()) {
-    QPainter painter(&printer);
-    QPixmap pixmap = imageLabel->pixmap(Qt::ReturnByValue);
-    QRect rect = painter.viewport();
-    QSize size = pixmap.size();
-    size.scale(rect.size(), Qt::KeepAspectRatio);
-    painter.setViewport(rect.x(), rect.y(), size.width(), size.height());
-    painter.setWindow(pixmap.rect());
-    painter.drawPixmap(0, 0, pixmap);
-  }
-#endif
-}
-//! [8]
+// void MainWindow::Print()
+// //! [5] //! [6]
+// {
+//   Q_ASSERT(!imageLabel->pixmap(Qt::ReturnByValue).isNull());
+// #if defined(QT_PRINTSUPPORT_LIB) && QT_CONFIG(printdialog)
+//   //! [6] //! [7]
+//   QPrintDialog dialog(&printer, this);
+//   //! [7] //! [8]
+//   if (dialog.exec()) {
+//     QPainter painter(&printer);
+//     QPixmap pixmap = imageLabel->pixmap(Qt::ReturnByValue);
+//     QRect rect = painter.viewport();
+//     QSize size = pixmap.size();
+//     size.scale(rect.size(), Qt::KeepAspectRatio);
+//     painter.setViewport(rect.x(), rect.y(), size.width(), size.height());
+//     painter.setWindow(pixmap.rect());
+//     painter.drawPixmap(0, 0, pixmap);
+//   }
+// #endif
+// }
 
-void MainWindow::copy() {
+void MainWindow::Copy() {
 #ifndef QT_NO_CLIPBOARD
   QGuiApplication::clipboard()->setImage(image);
 #endif  // !QT_NO_CLIPBOARD
@@ -221,13 +216,13 @@ static QImage clipboardImage() {
 }
 #endif  // !QT_NO_CLIPBOARD
 
-void MainWindow::paste() {
+void MainWindow::Paste() {
 #ifndef QT_NO_CLIPBOARD
   const QImage newImage = clipboardImage();
   if (newImage.isNull()) {
     statusBar()->showMessage(tr("No image in clipboard"));
   } else {
-    setImage(newImage);
+    SetImage(newImage);
     setWindowFilePath(QString());
     const QString message =
         tr("Obtained image from clipboard, %1x%2, Depth: %3")
@@ -240,18 +235,18 @@ void MainWindow::paste() {
 }
 
 //! [9]
-void MainWindow::zoomIn()
+void MainWindow::ZoomIn()
 //! [9] //! [10]
 {
-  scaleImage(1.25);
+  ScaleImage(1.25);
 }
 
-void MainWindow::zoomOut() {
-  scaleImage(0.8);
+void MainWindow::ZoomOut() {
+  ScaleImage(0.8);
 }
 
 //! [10] //! [11]
-void MainWindow::normalSize()
+void MainWindow::NormalSize()
 //! [11] //! [12]
 {
   imageLabel->adjustSize();
@@ -260,19 +255,19 @@ void MainWindow::normalSize()
 //! [12]
 
 //! [13]
-void MainWindow::fitToWindow()
+void MainWindow::FitToWindow()
 //! [13] //! [14]
 {
   bool fitToWindow = fitToWindowAct->isChecked();
   scrollArea->setWidgetResizable(fitToWindow);
   if (!fitToWindow)
-    normalSize();
-  updateActions();
+    NormalSize();
+  UpdateActions();
 }
 //! [14]
 
 //! [15]
-void MainWindow::about()
+void MainWindow::About()
 //! [15] //! [16]
 {
   QMessageBox::about(
@@ -293,21 +288,21 @@ void MainWindow::about()
 //! [16]
 
 //! [17]
-void MainWindow::createActions()
+void MainWindow::CreateActions()
 //! [17] //! [18]
 {
   QMenu* fileMenu = menuBar()->addMenu(tr("&File"));
 
-  QAction* openAct =
-      fileMenu->addAction(tr("&Open..."), this, &MainWindow::open);
-  openAct->setShortcut(QKeySequence::Open);
+  QAction* OpenAct =
+      fileMenu->addAction(tr("&Open..."), this, &MainWindow::Open);
+  OpenAct->setShortcut(QKeySequence::Open);
 
-  saveAsAct = fileMenu->addAction(tr("&Save As..."), this, &MainWindow::saveAs);
+  saveAsAct = fileMenu->addAction(tr("&Save As..."), this, &MainWindow::SaveAs);
   saveAsAct->setEnabled(false);
 
-  printAct = fileMenu->addAction(tr("&Print..."), this, &MainWindow::print);
-  printAct->setShortcut(QKeySequence::Print);
-  printAct->setEnabled(false);
+  // printAct = fileMenu->addAction(tr("&Print..."), this, &MainWindow::Print);
+  // printAct->setShortcut(QKeySequence::Print);
+  // printAct->setEnabled(false);
 
   fileMenu->addSeparator();
 
@@ -316,48 +311,48 @@ void MainWindow::createActions()
 
   QMenu* editMenu = menuBar()->addMenu(tr("&Edit"));
 
-  copyAct = editMenu->addAction(tr("&Copy"), this, &MainWindow::copy);
+  copyAct = editMenu->addAction(tr("&Copy"), this, &MainWindow::Copy);
   copyAct->setShortcut(QKeySequence::Copy);
   copyAct->setEnabled(false);
 
   QAction* pasteAct =
-      editMenu->addAction(tr("&Paste"), this, &MainWindow::paste);
+      editMenu->addAction(tr("&Paste"), this, &MainWindow::Paste);
   pasteAct->setShortcut(QKeySequence::Paste);
 
   QMenu* viewMenu = menuBar()->addMenu(tr("&View"));
 
   zoomInAct =
-      viewMenu->addAction(tr("Zoom &In (25%)"), this, &MainWindow::zoomIn);
+      viewMenu->addAction(tr("Zoom &In (25%)"), this, &MainWindow::ZoomIn);
   zoomInAct->setShortcut(QKeySequence::ZoomIn);
   zoomInAct->setEnabled(false);
 
   zoomOutAct =
-      viewMenu->addAction(tr("Zoom &Out (25%)"), this, &MainWindow::zoomOut);
+      viewMenu->addAction(tr("Zoom &Out (25%)"), this, &MainWindow::ZoomOut);
   zoomOutAct->setShortcut(QKeySequence::ZoomOut);
   zoomOutAct->setEnabled(false);
 
   normalSizeAct =
-      viewMenu->addAction(tr("&Normal Size"), this, &MainWindow::normalSize);
+      viewMenu->addAction(tr("&Normal Size"), this, &MainWindow::NormalSize);
   normalSizeAct->setShortcut(tr("Ctrl+S"));
   normalSizeAct->setEnabled(false);
 
   viewMenu->addSeparator();
 
   fitToWindowAct =
-      viewMenu->addAction(tr("&Fit to Window"), this, &MainWindow::fitToWindow);
+      viewMenu->addAction(tr("&Fit to Window"), this, &MainWindow::FitToWindow);
   fitToWindowAct->setEnabled(false);
   fitToWindowAct->setCheckable(true);
   fitToWindowAct->setShortcut(tr("Ctrl+F"));
 
   QMenu* helpMenu = menuBar()->addMenu(tr("&Help"));
 
-  helpMenu->addAction(tr("&About"), this, &MainWindow::about);
+  helpMenu->addAction(tr("&About"), this, &MainWindow::About);
   helpMenu->addAction(tr("About &Qt"), this, &QApplication::aboutQt);
 }
 //! [18]
 
 //! [21]
-void MainWindow::updateActions()
+void MainWindow::UpdateActions()
 //! [21] //! [22]
 {
   saveAsAct->setEnabled(!image.isNull());
@@ -369,15 +364,15 @@ void MainWindow::updateActions()
 //! [22]
 
 //! [23]
-void MainWindow::scaleImage(double factor)
+void MainWindow::ScaleImage(double factor)
 //! [23] //! [24]
 {
   scaleFactor *= factor;
   imageLabel->resize(scaleFactor *
                      imageLabel->pixmap(Qt::ReturnByValue).size());
 
-  adjustScrollBar(scrollArea->horizontalScrollBar(), factor);
-  adjustScrollBar(scrollArea->verticalScrollBar(), factor);
+  AdjustScrollBar(scrollArea->horizontalScrollBar(), factor);
+  AdjustScrollBar(scrollArea->verticalScrollBar(), factor);
 
   zoomInAct->setEnabled(scaleFactor < 3.0);
   zoomOutAct->setEnabled(scaleFactor > 0.333);
@@ -385,7 +380,7 @@ void MainWindow::scaleImage(double factor)
 //! [24]
 
 //! [25]
-void MainWindow::adjustScrollBar(QScrollBar* scrollBar, double factor)
+void MainWindow::AdjustScrollBar(QScrollBar* scrollBar, double factor)
 //! [25] //! [26]
 {
   scrollBar->setValue(int(factor * scrollBar->value() +

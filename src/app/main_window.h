@@ -10,29 +10,29 @@ class MainWindow : public QMainWindow {
 
  public:
   MainWindow(QWidget* parent = nullptr);
-  bool loadImage(const QString&);
-  bool loadRaw(const QString&);
+  bool LoadImage(const QString&);
+  bool LoadRaw(const QString&);
 
  private slots:
-  void open();
-  void saveAs();
-  void print();
-  void copy();
-  void paste();
-  void zoomIn();
-  void zoomOut();
-  void normalSize();
-  void fitToWindow();
-  void about();
+  void Open();
+  void SaveAs();
+  // void Print();
+  void Copy();
+  void Paste();
+  void ZoomIn();
+  void ZoomOut();
+  void NormalSize();
+  void FitToWindow();
+  void About();
 
  private:
-  void createActions();
-  void createMenus();
-  void updateActions();
-  bool saveFile(const QString& fileName);
-  void setImage(const QImage& newImage);
-  void scaleImage(double factor);
-  void adjustScrollBar(QScrollBar* scrollBar, double factor);
+  void CreateActions();
+  void CreateMenus();
+  void UpdateActions();
+  bool SaveFile(const QString& fileName);
+  void SetImage(const QImage& newImage);
+  void ScaleImage(double factor);
+  void AdjustScrollBar(QScrollBar* scrollBar, double factor);
 
   QImage image;
   QLabel* imageLabel;
@@ -40,7 +40,7 @@ class MainWindow : public QMainWindow {
   double scaleFactor = 1;
 
   QAction* saveAsAct;
-  QAction* printAct;
+  // QAction* printAct;
   QAction* copyAct;
   QAction* zoomInAct;
   QAction* zoomOutAct;

@@ -28,7 +28,7 @@ struct jpegErrorManager {
   jmp_buf setjmp_buffer;
 };
 
-raw::Thumbnail GetThumbnail(const LibRaw& iProcessor) {
+raw::RgbImage CreateThumbnail(const LibRaw& iProcessor) {
   const auto& thumbnail = iProcessor.imgdata.thumbnail;
   jpegErrorManager jerr;
   struct jpeg_decompress_struct cinfo;
@@ -50,7 +50,19 @@ raw::Thumbnail GetThumbnail(const LibRaw& iProcessor) {
     jpeg_read_scanlines(&cinfo, rowptr, 1);
   }
   jpeg_finish_decompress(&cinfo);  //finish decompressing
-  return raw::Thumbnail{jdata, thumbnail.twidth, thumbnail.theight};
+  return raw::RgbImage{jdata, thumbnail.twidth, thumbnail.theight};
+}
+
+raw::RawFile CreateRawFile(const LibRaw& iProcessor) {
+  auto thumbnail = CreateThumbnail(iProcessor);
+  std::vector<unsigned short> rawdata;
+  rawdata.insert(rawdata.end(), &iProcessor.imgdata.rawdata.raw_image[0],
+                 &iProcessor.imgdata.rawdata
+                      .raw_image[iProcessor.imgdata.sizes.raw_width *
+                                 iProcessor.imgdata.sizes.raw_height]);
+  return {std::move(thumbnail), std::move(rawdata),
+          iProcessor.imgdata.sizes.raw_width,
+          iProcessor.imgdata.sizes.raw_height};
 }
 }  // namespace
 
@@ -69,7 +81,7 @@ RawFile RawLoader::LoadRaw(const std::string& file_name) {
   printf("Image size: %d x %d\n", iProcessor.imgdata.sizes.width,
          iProcessor.imgdata.sizes.height);
 
-  // Let us unpack the image
+  // Fills iProcessor.rawdata.raw_image
   iProcessor.unpack();
 
   if (iProcessor.unpack_thumb() != LibRaw_errors::LIBRAW_SUCCESS) {
@@ -77,35 +89,15 @@ RawFile RawLoader::LoadRaw(const std::string& file_name) {
   };
 
   // Convert from imgdata.rawdata to imgdata.image:
-  iProcessor.raw2image();
-  std::cout << " Finished!" << std::endl;
+  // iProcessor.raw2image();
+  std::cout << "Read Raw Image" << std::endl;
 
-  RawFile rawfile{GetThumbnail(iProcessor), iProcessor.imgdata.image};
+  RawFile rawfile = CreateRawFile(iProcessor);
+  std::cout << "Created Raw Object" << std::endl;
   iProcessor.recycle();
+  std::cout << "Recycled iProcessor" << std::endl;
+
   return rawfile;
-  // -------------------------------------
-
-  // And let us print its dump; the data are accessible through data fields of
-  // the class
-  //   for (int i = 0; i < iProcessor.imgdata.thumbnail.twidth *
-  //                           iProcessor.imgdata.thumbnail.theight*3;
-  //        i++) {
-  //     // printf("i=%d R=%d G=%d B=%d G2=%d\n",
-  //     //        i,
-  //     //        iProcessor.imgdata.image[i][0] >> 8,
-  //     //        iProcessor.imgdata.image[i][1] >> 8,
-  //     //        iProcessor.imgdata.image[i][2] >> 8,
-  //     //        iProcessor.imgdata.image[i][3]);
-  //     q_image.setPixelColor(
-  //         i % iProcessor.imgdata.sizes.iwidth,
-  //         i / iProcessor.imgdata.sizes.iwidth,
-  //         QColor{std::min(iProcessor.imgdata.image[i][0] >> 3, 255),
-  //                std::min(iProcessor.imgdata.image[i][1] >> 3, 255),
-  //                std::min(iProcessor.imgdata.image[i][2] >> 3, 255)});
-  //   }
-
-  // Finally, let us free the image processor for work with the next image
-  // iProcessor.recycle();
 }
 
 }  // namespace raw
