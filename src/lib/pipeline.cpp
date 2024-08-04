@@ -4,7 +4,7 @@
 namespace {
 
 raw::RgbImage Demosaic(const raw::RawFile& rawfile) {}
-
+// auto rgb_image=raw::RgbImage{nullptr}
 }  // namespace
 
 namespace raw {

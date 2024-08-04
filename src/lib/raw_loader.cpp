@@ -39,12 +39,11 @@ raw::RgbImage CreateThumbnail(const LibRaw& iProcessor) {
   int rc = jpeg_read_header(&cinfo, TRUE);
   jpeg_start_decompress(&cinfo);
 
-  unsigned char* jdata =
-      (unsigned char*)malloc(thumbnail.twidth * thumbnail.theight * 3);
+  std::vector<unsigned char> jdata(thumbnail.twidth * thumbnail.theight * 3);
   unsigned char* rowptr[1];
   while (cinfo.output_scanline < cinfo.output_height)  // loop
   {
-    rowptr[0] = (unsigned char*)jdata +  // secret to method
+    rowptr[0] = jdata.data() +  // secret to method
                 3 * cinfo.output_width * cinfo.output_scanline;
 
     jpeg_read_scanlines(&cinfo, rowptr, 1);

@@ -6,10 +6,10 @@ using RawData = std::vector<unsigned short>;
 
 class RgbImage {
  public:
-  RgbImage(unsigned char* pixels, int width, int height)
+  RgbImage(std::vector<unsigned char> pixels, int width, int height)
       : pixels(pixels), width(width), height(height){};
 
-  unsigned char* pixels;
+  std::vector<unsigned char> pixels;
   int width;
   int height;
 };
