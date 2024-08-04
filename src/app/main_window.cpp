@@ -1,6 +1,7 @@
 #include "main_window.h"
 #include <qimage.h>
 
+#include "pipeline.h"
 #include "raw_loader.h"
 
 #include <QApplication>
@@ -69,12 +70,13 @@ bool MainWindow::LoadRaw(const QString& fileName) {
   auto raw_file = loader.LoadRaw(fileName.toStdString());
   const auto& thumbnail = raw_file.thumbnail;
 
-  const QImage newImage(thumbnail.pixels.data(), thumbnail.width,
-                        thumbnail.height, QImage::Format::Format_RGB888);
+  // const QImage newImage(thumbnail.pixels.data(), thumbnail.width,
+  //                       thumbnail.height, QImage::Format::Format_RGB888);
 
-  // const QImage newImage(reinterpret_cast<uint8_t*>(raw_file.rawdata.data()),
-  //                       raw_file.height, raw_file.width,
-  //                       QImage::Format::Format_RGBA64);
+  const raw::Pipeline pipeline{};
+  auto processed_image = pipeline.Run(raw_file);
+  const QImage newImage(processed_image.pixels.data(), processed_image.width,
+                        processed_image.height, QImage::Format::Format_RGB888);
   if (newImage.isNull()) {
     QMessageBox::information(this, QGuiApplication::applicationDisplayName(),
                              tr("Cannot load %1: %2"));

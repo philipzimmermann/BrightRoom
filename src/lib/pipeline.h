@@ -4,6 +4,10 @@
 namespace raw {
 
 class Pipeline {
-  RgbImage Run(const RawFile& input);
+ public:
+  Pipeline(){};
+  RgbImage Run(const RawFile& input) const;
+
+ private:
 };
 }  // namespace raw

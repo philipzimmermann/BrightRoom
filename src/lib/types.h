@@ -1,15 +1,16 @@
 #pragma once
 
+#include <cstdint>
 #include <vector>
 namespace raw {
-using RawData = std::vector<unsigned short>;
+using RawData = std::vector<uint16_t>;
 
 class RgbImage {
  public:
-  RgbImage(std::vector<unsigned char> pixels, int width, int height)
+  RgbImage(std::vector<uint8_t> pixels, int width, int height)
       : pixels(pixels), width(width), height(height){};
 
-  std::vector<unsigned char> pixels;
+  std::vector<uint8_t> pixels;  // Format_RGB888
   int width;
   int height;
 };
@@ -20,7 +21,10 @@ class RawFile {
       : thumbnail(thumbnail), rawdata(rawdata), width(width), height(height){};
 
   RgbImage thumbnail;
-  RawData rawdata;  // Bayer data assumed format G B G B \ R G R G \ G B G B
+  RawData rawdata;  // Bayer data assumed format:
+  // G B G B
+  // R G R G
+  // G B G B
   int width;
   int height;
 };

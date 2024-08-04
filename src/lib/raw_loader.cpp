@@ -11,6 +11,7 @@
 #include <QGraphicsScene>
 #include <QGraphicsView>
 #include <QImageReader>
+#include <cstdint>
 #include <iostream>
 #include <opencv2/core/core.hpp>
 #include <opencv2/core/types.hpp>
@@ -52,13 +53,29 @@ raw::RgbImage CreateThumbnail(const LibRaw& iProcessor) {
   return raw::RgbImage{jdata, thumbnail.twidth, thumbnail.theight};
 }
 
-raw::RawFile CreateRawFile(const LibRaw& iProcessor) {
+raw::RawFile CreateRawFile(LibRaw& iProcessor) {
   auto thumbnail = CreateThumbnail(iProcessor);
-  std::vector<unsigned short> rawdata;
-  rawdata.insert(rawdata.end(), &iProcessor.imgdata.rawdata.raw_image[0],
-                 &iProcessor.imgdata.rawdata
-                      .raw_image[iProcessor.imgdata.sizes.raw_width *
-                                 iProcessor.imgdata.sizes.raw_height]);
+  std::vector<uint16_t> rawdata(iProcessor.imgdata.sizes.raw_width *
+                                    iProcessor.imgdata.sizes.raw_height * 3,
+                                0);
+  for (int row = 0; row < iProcessor.imgdata.sizes.raw_height; ++row) {
+    for (int col = 0; col < iProcessor.imgdata.sizes.raw_width; ++col) {
+      auto index = row * iProcessor.imgdata.sizes.raw_width + col;
+      if (row % 2 == 0) {
+        if (col % 2 == 0) {
+          rawdata[index * 3 + 0] = iProcessor.imgdata.rawdata.raw_image[index];
+        } else {
+          rawdata[index * 3 + 1] = iProcessor.imgdata.rawdata.raw_image[index];
+        }
+      } else {
+        if (col % 2 == 0) {
+          rawdata[index * 3 + 1] = iProcessor.imgdata.rawdata.raw_image[index];
+        } else {
+          rawdata[index * 3 + 2] = iProcessor.imgdata.rawdata.raw_image[index];
+        }
+      }
+    }
+  }
   return {std::move(thumbnail), std::move(rawdata),
           iProcessor.imgdata.sizes.raw_width,
           iProcessor.imgdata.sizes.raw_height};
