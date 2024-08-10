@@ -75,8 +75,8 @@ bool MainWindow::LoadRaw(const QString& fileName) {
 
   const raw::Pipeline pipeline{};
   auto processed_image = pipeline.Run(raw_file);
-  const QImage newImage(processed_image.pixels.data(), processed_image.width,
-                        processed_image.height, QImage::Format::Format_RGB888);
+  QImage newImage(processed_image.pixels.data(), processed_image.width,
+                  processed_image.height, QImage::Format::Format_RGB888);
   if (newImage.isNull()) {
     QMessageBox::information(this, QGuiApplication::applicationDisplayName(),
                              tr("Cannot load %1: %2"));
