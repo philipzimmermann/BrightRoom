@@ -1,9 +1,9 @@
 {
-    "version": 8,
+    "version": 9,
     "configurePresets": [
         {
-            "name": "CMakePresets.json",
-            "displayName": "Clang 14.0.0 x86_64-pc-linux-gnu",
+            "name": "Debug",
+            "displayName": "Debug",
             "description": "Using compilers: C = /usr/bin/clang-14, CXX = /usr/bin/clang++-14",
             "binaryDir": "${sourceDir}/out/build/${presetName}",
             "cacheVariables": {
@@ -12,6 +12,26 @@
                 "CMAKE_CXX_COMPILER": "/usr/bin/clang++-14",
                 "CMAKE_BUILD_TYPE": "Debug"
             }
+        },
+        {
+            "name": "Release",
+            "displayName": "Release",
+            "description": "Using compilers: C = /usr/bin/clang-14, CXX = /usr/bin/clang++-14",
+            "binaryDir": "${sourceDir}/out/build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
+                "CMAKE_C_COMPILER": "/usr/bin/clang-14",
+                "CMAKE_CXX_COMPILER": "/usr/bin/clang++-14",
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "Default",
+            "description": "",
+            "displayName": "",
+            "configurePreset": "CMakePresets.json"
         }
     ]
 }

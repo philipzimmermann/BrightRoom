@@ -18,6 +18,7 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
+#include "Tracy.hpp"
 #include "jpeglib.h"
 #include "libraw/libraw_const.h"
 #include "setjmp.h"
@@ -30,6 +31,7 @@ struct jpegErrorManager {
 };
 
 raw::RgbImage CreateThumbnail(const LibRaw& iProcessor) {
+  ZoneScoped;
   const auto& thumbnail = iProcessor.imgdata.thumbnail;
   jpegErrorManager jerr;
   struct jpeg_decompress_struct cinfo;
@@ -54,6 +56,7 @@ raw::RgbImage CreateThumbnail(const LibRaw& iProcessor) {
 }
 
 raw::RawFile CreateRawFile(LibRaw& iProcessor) {
+  ZoneScoped;
   auto thumbnail = CreateThumbnail(iProcessor);
   std::vector<uint16_t> rawdata(iProcessor.imgdata.sizes.raw_width *
                                     iProcessor.imgdata.sizes.raw_height * 3,
@@ -85,6 +88,7 @@ raw::RawFile CreateRawFile(LibRaw& iProcessor) {
 namespace raw {
 
 RawFile RawLoader::LoadRaw(const std::string& file_name) {
+  ZoneScoped;
   std::cout << "Loading RAW" << std::endl;
 
   // Let us create an image processor

@@ -8,6 +8,7 @@ add_library(${PROJECT_NAME}_lib STATIC
 target_link_libraries(${PROJECT_NAME}_lib 
     PRIVATE Qt6::Widgets
     PUBLIC libraw::libraw
-    PRIVATE ${OpenCV_LIBS})
+    PRIVATE ${OpenCV_LIBS}
+    TracyClient)
     
 target_include_directories(${PROJECT_NAME}_lib INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})

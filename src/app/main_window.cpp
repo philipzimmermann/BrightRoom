@@ -24,6 +24,8 @@
 #include <cstdint>
 #include <iostream>
 
+#include "Tracy.hpp"
+
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent), imageLabel(new QLabel), scrollArea(new QScrollArea) {
   imageLabel->setBackgroundRole(QPalette::Base);
@@ -66,6 +68,7 @@ bool MainWindow::LoadImage(const QString& fileName) {
 }
 
 bool MainWindow::LoadRaw(const QString& fileName) {
+  ZoneScopedN("LoadRaw");
   raw::RawLoader loader{};
   auto raw_file = loader.LoadRaw(fileName.toStdString());
   const auto& thumbnail = raw_file.thumbnail;

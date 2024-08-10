@@ -14,6 +14,12 @@ find_package(Qt6 REQUIRED COMPONENTS Widgets)
 find_package (JPEG REQUIRED)
 find_package(OpenCV REQUIRED )
 
+# Add Tracy profiler
+add_library(TracyClient STATIC submodules/thirdparty/tracy/public/TracyClient.cpp
+                                submodules/thirdparty/tracy/public/tracy/TracyOpenCL.hpp)
+target_include_directories(TracyClient PUBLIC submodules/thirdparty/tracy/public/tracy)
+target_compile_definitions(TracyClient PUBLIC TRACY_ENABLE=1)
+
 set(LIBRAW_PATH ${CMAKE_CURRENT_SOURCE_DIR}/submodules/thirdparty/LibRaw)
 add_subdirectory(submodules/thirdparty/LibRaw-cmake)
 # add_subdirectory(rawspeed)
@@ -23,6 +29,7 @@ add_subdirectory(src/app)
 add_subdirectory(src/lib)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
+        TracyClient
         ${PROJECT_NAME}_lib
         Qt6::Widgets)
 
