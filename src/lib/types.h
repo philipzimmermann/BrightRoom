@@ -4,6 +4,12 @@
 #include <vector>
 namespace raw {
 using RGB8_Data = std::vector<uint8_t>;
+
+// Bayer data assumed format:
+// R G R G R
+// G B G B G
+// R G R G R
+// G B G B G
 using Raw16Data = std::vector<uint16_t>;
 using RawFloatData = std::vector<float>;
 
@@ -23,10 +29,7 @@ class RawFile {
       : thumbnail(thumbnail), rawdata(rawdata), width(width), height(height){};
 
   RgbImage thumbnail;
-  Raw16Data rawdata;  // Bayer data assumed format:
-  // G B G B
-  // R G R G
-  // G B G B
+  Raw16Data rawdata;
   int width;
   int height;
 };

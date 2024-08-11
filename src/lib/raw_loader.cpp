@@ -61,6 +61,8 @@ raw::RawFile CreateRawFile(LibRaw& iProcessor) {
   std::vector<uint16_t> rawdata(iProcessor.imgdata.sizes.raw_width *
                                     iProcessor.imgdata.sizes.raw_height * 3,
                                 0);
+  std::cout << "col" << iProcessor.COLOR(0, 0) << iProcessor.imgdata.idata.cdesc
+            << std::endl;
   for (int row = 0; row < iProcessor.imgdata.sizes.raw_height; ++row) {
     for (int col = 0; col < iProcessor.imgdata.sizes.raw_width; ++col) {
       auto index = row * iProcessor.imgdata.sizes.raw_width + col;
