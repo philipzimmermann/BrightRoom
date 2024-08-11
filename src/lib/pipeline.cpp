@@ -25,6 +25,11 @@ raw::RawFloatData Normalize(raw::Raw16Data& rawdata) {
 
 void Demosaic(raw::RawFloatData& rawdata, int width, int height) {
 
+  // R G R G R
+  // G B G B G
+  // R G R G R
+  // G B G B G
+
   // interpolate horizontal
   for (int row = 0; row < height; ++row) {
     if (row % 2 == 0) {
@@ -73,11 +78,11 @@ void Demosaic(raw::RawFloatData& rawdata, int width, int height) {
              At(rawdata, col, row + 1, 0, width)) /
             2;
       }
-      // get green
+      // get blue
       for (int row = 2; row < height - 1; row += 2) {
-        At(rawdata, col, row, 1, width) =
-            (At(rawdata, col, row - 1, 1, width) +
-             At(rawdata, col, row + 1, 1, width)) /
+        At(rawdata, col, row, 2, width) =
+            (At(rawdata, col, row - 1, 2, width) +
+             At(rawdata, col, row + 1, 2, width)) /
             2;
       }
     } else {
@@ -104,7 +109,10 @@ void Demosaic(raw::RawFloatData& rawdata, int width, int height) {
   }
 
   for (int i = width * 3; i < 20 + width * 3; ++i) {
-    std::cout << rawdata[i] << std::endl;
+    std::cout << "row2:" << rawdata[i] << std::endl;
+  }
+  for (int i = width * 3 * 2; i < 20 + width * 3 * 2; ++i) {
+    std::cout << "row3:" << rawdata[i] << std::endl;
   }
 }
 
