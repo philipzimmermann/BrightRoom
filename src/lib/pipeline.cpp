@@ -23,6 +23,22 @@ raw::RawFloatData Normalize(raw::Raw16Data& rawdata) {
   return output;
 }
 
+int Color(raw::RawFloatData& rawdata, int x, int y) {
+  if (y % 2 == 0) {
+    if (x % 2 == 0) {
+      return 0;
+    } else {
+      return 1;
+    }
+  } else {
+    if (x % 2 == 0) {
+      return 1;
+    } else {
+      return 2;
+    }
+  }
+}
+
 void Demosaic(raw::RawFloatData& rawdata, int width, int height) {
 
   // R G R G R
