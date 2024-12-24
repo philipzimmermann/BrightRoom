@@ -9,4 +9,4 @@
 	url = https://github.com/LibRaw/LibRaw-cmake
 [submodule "submodules/thirdparty/tracy"]
 	path = submodules/thirdparty/tracy
-	url = https://github.com/wolfpld/tracy/
+	url = https://github.com/wolfpld/tracy
