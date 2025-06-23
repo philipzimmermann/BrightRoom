@@ -14,35 +14,26 @@ class MainWindow : public QMainWindow {
 
    private slots:
     void Open();
-    void SaveAs();
-    // void Print();
-    void Copy();
-    void Paste();
     void ZoomIn();
     void ZoomOut();
     void NormalSize();
     void FitToWindow();
-    void About();
 
    private:
     void CreateActions();
     void CreateMenus();
     void UpdateActions();
-    bool SaveFile(const QString& fileName);
     void SetImage(const QImage& newImage);
     void ScaleImage(double factor);
     void AdjustScrollBar(QScrollBar* scrollBar, double factor);
 
-    QImage image;
-    QLabel* imageLabel;
-    QScrollArea* scrollArea;
-    double scaleFactor = 1;
+    QImage _image;
+    QLabel* _imageLabel;
+    QScrollArea* _scrollArea;
+    double _scaleFactor = 1;
 
-    QAction* saveAsAct;
-    // QAction* printAct;
-    QAction* copyAct;
-    QAction* zoomInAct;
-    QAction* zoomOutAct;
-    QAction* normalSizeAct;
-    QAction* fitToWindowAct;
+    QAction* _zoomInAct;
+    QAction* _zoomOutAct;
+    QAction* _normalSizeAct;
+    QAction* _fitToWindowAct;
 };
