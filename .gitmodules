@@ -6,7 +6,7 @@
 	url = https://github.com/LibRaw/LibRaw
 [submodule "LibRaw-cmake"]
 	path = submodules/thirdparty/LibRaw-cmake
-	url = https://github.com/LibRaw/LibRaw-cmake
+	url = git@github.com:philipzimmermann/LibRaw-cmake.git
 [submodule "submodules/thirdparty/tracy"]
 	path = submodules/thirdparty/tracy
 	url = https://github.com/wolfpld/tracy
