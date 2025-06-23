@@ -23,11 +23,12 @@ class MainWindow : public QMainWindow {
     void CreateActions();
     void CreateMenus();
     void UpdateActions();
-    void SetImage(const QImage& newImage);
+    void SetImage(const QImage& new_image);
     void ScaleImage(double factor);
-    void AdjustScrollBar(QScrollBar* scrollBar, double factor);
+    void AdjustScrollBar(QScrollBar* scroll_bar, double factor);
 
-    QImage _image;
+    QImage _fullSizeImage;
+    QImage _scaledImage;
     QLabel* _imageLabel;
     QScrollArea* _scrollArea;
     double _scaleFactor = 1;

@@ -21,6 +21,7 @@
 #include <QScrollBar>
 #include <QStandardPaths>
 #include <QStatusBar>
+#include <iostream>
 
 #include "Tracy.hpp"
 
@@ -46,21 +47,21 @@ MainWindow::MainWindow(QWidget* parent)
 bool MainWindow::LoadImage(const QString& fileName) {
     QImageReader reader(fileName);
     reader.setAutoTransform(true);
-    const QImage newImage = reader.read();
-    if (newImage.isNull()) {
+    const QImage new_image = reader.read();
+    if (new_image.isNull()) {
         QMessageBox::information(
             this, QGuiApplication::applicationDisplayName(),
             tr("Cannot load %1: %2")
                 .arg(QDir::toNativeSeparators(fileName), reader.errorString()));
         return false;
     }
-    SetImage(newImage);
+    SetImage(new_image);
     setWindowFilePath(fileName);
     const QString message = tr("Opened \"%1\", %2x%3, Depth: %4")
                                 .arg(QDir::toNativeSeparators(fileName))
-                                .arg(_image.width())
-                                .arg(_image.height())
-                                .arg(_image.depth());
+                                .arg(_fullSizeImage.width())
+                                .arg(_fullSizeImage.height())
+                                .arg(_fullSizeImage.depth());
     statusBar()->showMessage(message);
     return true;
 }
@@ -89,26 +90,24 @@ bool MainWindow::LoadRaw(const QString& fileName) {
     setWindowFilePath(fileName);
     const QString message = tr("Opened \"%1\", %2x%3, Depth: %4")
                                 .arg(QDir::toNativeSeparators(fileName))
-                                .arg(_image.width())
-                                .arg(_image.height())
-                                .arg(_image.depth());
+                                .arg(_fullSizeImage.width())
+                                .arg(_fullSizeImage.height())
+                                .arg(_fullSizeImage.depth());
     statusBar()->showMessage(message);
     return true;
 }
 
-void MainWindow::SetImage(const QImage& newImage) {
-    _image = newImage;
-    if (_image.colorSpace().isValid())
-        _image.convertToColorSpace(QColorSpace::SRgb);
-    _imageLabel->setPixmap(QPixmap::fromImage(_image));
-    _scaleFactor = 1.0;
-
+void MainWindow::SetImage(const QImage& new_image) {
+    _fullSizeImage = new_image;
+    if (_fullSizeImage.colorSpace().isValid()) {
+        _fullSizeImage.convertToColorSpace(QColorSpace::SRgb);
+    }
+    _imageLabel->setPixmap(QPixmap::fromImage(_fullSizeImage));
     _scrollArea->setVisible(true);
     _fitToWindowAct->setEnabled(true);
     UpdateActions();
-
-    if (!_fitToWindowAct->isChecked())
-        _imageLabel->adjustSize();
+    FitToWindow();
+    _imageLabel->adjustSize();
 }
 
 static void initializeImageFileDialog(QFileDialog& dialog,
@@ -168,9 +167,12 @@ void MainWindow::NormalSize() {
 }
 
 void MainWindow::FitToWindow() {
-    _scaleFactor =
-        _image.width() / _imageLabel->pixmap(Qt::ReturnByValue).width();
-    ScaleImage(_scaleFactor);
+    double scale =
+        std::max(static_cast<double>(_fullSizeImage.width()) /
+                     _imageLabel->pixmap(Qt::ReturnByValue).width(),
+                 static_cast<double>(_fullSizeImage.height()) /
+                     _imageLabel->pixmap(Qt::ReturnByValue).height());
+    ScaleImage(1 / scale);
 }
 
 void MainWindow::CreateActions() {
