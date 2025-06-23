@@ -24,14 +24,9 @@ set(LIBRAW_PATH ${CMAKE_CURRENT_SOURCE_DIR}/submodules/thirdparty/LibRaw)
 add_subdirectory(submodules/thirdparty/LibRaw-cmake)
 # add_subdirectory(rawspeed)
 
-add_subdirectory(src/app)
-
 add_subdirectory(src/lib)
 
-target_link_libraries(${PROJECT_NAME} PRIVATE
-        TracyClient
-        ${PROJECT_NAME}_lib
-        Qt6::Widgets)
+add_subdirectory(src/app)
 
 
 #CTest

@@ -11,4 +11,4 @@ target_link_libraries(${PROJECT_NAME}_lib
     PRIVATE ${OpenCV_LIBS}
     TracyClient)
     
-target_include_directories(${PROJECT_NAME}_lib INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(${PROJECT_NAME}_lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

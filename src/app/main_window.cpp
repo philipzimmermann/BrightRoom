@@ -21,8 +21,6 @@
 #include <QScrollBar>
 #include <QStandardPaths>
 #include <QStatusBar>
-#include <cstdint>
-#include <iostream>
 
 #include "Tracy.hpp"
 
@@ -86,20 +84,6 @@ bool MainWindow::LoadRaw(const QString& fileName) {
         return false;
     }
     SetImage(newImage);
-
-    // Calculate scale factor to fit image to window
-    QSize windowSize = scrollArea->size();
-    QSize imageSize = image.size();
-
-    double scaleX = static_cast<double>(windowSize.width()) / imageSize.width();
-    double scaleY =
-        static_cast<double>(windowSize.height()) / imageSize.height();
-    double fitScale = qMin(scaleX, scaleY);
-
-    // Apply the scale factor to fit the image to the window
-    if (fitScale < 1.0) {
-        ScaleImage(fitScale);
-    }
 
     setWindowFilePath(fileName);
     const QString message = tr("Opened \"%1\", %2x%3, Depth: %4")
