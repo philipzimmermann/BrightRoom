@@ -12,6 +12,9 @@ class MainWindow : public QMainWindow {
     bool LoadImage(const QString&);
     bool LoadRaw(const QString&);
 
+   protected:
+    bool eventFilter(QObject* obj, QEvent* event) override;
+
    private slots:
     void Open();
     void ZoomIn();
@@ -38,4 +41,7 @@ class MainWindow : public QMainWindow {
     QAction* _zoomOutAct;
     QAction* _normalSizeAct;
     QAction* _fitToWindowAct;
+
+    bool _isDragging = false;
+    QPoint _lastDragPos;
 };
