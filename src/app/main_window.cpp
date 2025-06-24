@@ -157,36 +157,33 @@ void MainWindow::Open() {
 }
 
 void MainWindow::ZoomIn() {
-    ScaleImage(_scaleFactor * 1.25);
+    ScaleImage(_zoom * 1.25);
 }
 
 void MainWindow::ZoomOut() {
-    ScaleImage(_scaleFactor * 0.8);
+    ScaleImage(_zoom * 0.8);
 }
 
 void MainWindow::NormalSize() {
     _imageLabel->adjustSize();
-    _scaleFactor = 1.0;
+    _zoom = 1.0;
 }
 
 void MainWindow::FitToWindow() {
-    // Get the size of the scroll area viewport (the visible area)
 
     // Calculate scale factors for both width and height
-    double scaleWidth =
+    double scale_width =
         static_cast<double>(_scrollArea->viewport()->size().width()) /
         _fullSizeImage.width();
-    double scaleHeight =
+    double scale_height =
         static_cast<double>(_scrollArea->viewport()->size().height()) /
         _fullSizeImage.height();
-    std::cout << "Scale width: " << scaleWidth << std::endl;
-    std::cout << "Scale height: " << scaleHeight << std::endl;
 
     // Use the larger scale factor to ensure the image fills the window
-    double scale = std::min(scaleWidth, scaleHeight);
+    _fit_zoom = std::min(scale_width, scale_height);
 
     // Apply the scaling
-    ScaleImage(scale);
+    ScaleImage(_fit_zoom);
 }
 
 void MainWindow::CreateActions() {
@@ -235,15 +232,16 @@ void MainWindow::UpdateActions() {
     _normalSizeAct->setEnabled(!_fitToWindowAct->isChecked());
 }
 
-void MainWindow::ScaleImage(double scale) {
-    _scaleFactor = std::clamp(scale, 0.1, 1.0);
-    _imageLabel->resize(_scaleFactor * _fullSizeImage.size());
+void MainWindow::ScaleImage(double requested_zoom) {
+    double old_zoom = _zoom;
+    _zoom = std::clamp(requested_zoom, _fit_zoom, 1.0);
+    _imageLabel->resize(_zoom * _fullSizeImage.size());
 
-    AdjustScrollBar(_scrollArea->horizontalScrollBar(), scale);
-    AdjustScrollBar(_scrollArea->verticalScrollBar(), scale);
+    AdjustScrollBar(_scrollArea->horizontalScrollBar(), _zoom / old_zoom);
+    AdjustScrollBar(_scrollArea->verticalScrollBar(), _zoom / old_zoom);
 }
 
-void MainWindow::AdjustScrollBar(QScrollBar* scrollBar, double scale) {
-    scrollBar->setValue(int(scale * scrollBar->value() +
-                            ((scale - 1) * scrollBar->pageStep() / 2)));
+void MainWindow::AdjustScrollBar(QScrollBar* scroll_bar, double zoom_change) {
+    scroll_bar->setValue(int(zoom_change * scroll_bar->value() +
+                             ((zoom_change - 1) * scroll_bar->pageStep() / 2)));
 }
