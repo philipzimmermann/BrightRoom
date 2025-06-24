@@ -22,104 +22,104 @@
 #include "jpeglib.h"
 #include "libraw/libraw_const.h"
 #include "setjmp.h"
+#include "types.h"
 
 namespace {
 
 struct jpegErrorManager {
-  struct jpeg_error_mgr pub;
-  jmp_buf setjmp_buffer;
+    struct jpeg_error_mgr pub;
+    jmp_buf setjmp_buffer;
 };
 
-raw::RgbImage CreateThumbnail(const LibRaw& iProcessor) {
-  ZoneScoped;
-  const auto& thumbnail = iProcessor.imgdata.thumbnail;
-  jpegErrorManager jerr;
-  struct jpeg_decompress_struct cinfo;
-  cinfo.err = jpeg_std_error(&jerr.pub);
+raw::RgbImage CreateThumbnail(const LibRaw& _iProcessor) {
+    ZoneScoped;
+    const auto& thumbnail = _iProcessor.imgdata.thumbnail;
+    jpegErrorManager jerr;
+    struct jpeg_decompress_struct cinfo;
+    cinfo.err = jpeg_std_error(&jerr.pub);
 
-  jpeg_create_decompress(&cinfo);
-  jpeg_mem_src(&cinfo, (unsigned char*)thumbnail.thumb, thumbnail.tlength);
-  int rc = jpeg_read_header(&cinfo, TRUE);
-  jpeg_start_decompress(&cinfo);
+    jpeg_create_decompress(&cinfo);
+    jpeg_mem_src(&cinfo, (unsigned char*)thumbnail.thumb, thumbnail.tlength);
+    int rc = jpeg_read_header(&cinfo, TRUE);
+    jpeg_start_decompress(&cinfo);
 
-  std::vector<unsigned char> jdata(thumbnail.twidth * thumbnail.theight * 3);
-  unsigned char* rowptr[1];
-  while (cinfo.output_scanline < cinfo.output_height)  // loop
-  {
-    rowptr[0] = jdata.data() +  // secret to method
-                3 * cinfo.output_width * cinfo.output_scanline;
+    std::vector<unsigned char> jdata(thumbnail.twidth * thumbnail.theight * 3);
+    unsigned char* rowptr[1];
+    while (cinfo.output_scanline < cinfo.output_height)  // loop
+    {
+        rowptr[0] = jdata.data() +  // secret to method
+                    3 * cinfo.output_width * cinfo.output_scanline;
 
-    jpeg_read_scanlines(&cinfo, rowptr, 1);
-  }
-  jpeg_finish_decompress(&cinfo);  //finish decompressing
-  return raw::RgbImage{jdata, thumbnail.twidth, thumbnail.theight};
+        jpeg_read_scanlines(&cinfo, rowptr, 1);
+    }
+    jpeg_finish_decompress(&cinfo);  //finish decompressing
+    return raw::RgbImage{jdata, thumbnail.twidth, thumbnail.theight};
 }
 
-raw::RawFile CreateRawFile(LibRaw& iProcessor) {
-  ZoneScoped;
-  auto thumbnail = CreateThumbnail(iProcessor);
-  std::vector<uint16_t> rawdata(iProcessor.imgdata.sizes.raw_width *
-                                    iProcessor.imgdata.sizes.raw_height * 3,
-                                0);
-  std::cout << "col" << iProcessor.COLOR(0, 0) << iProcessor.imgdata.idata.cdesc
-            << std::endl;
-  for (int row = 0; row < iProcessor.imgdata.sizes.raw_height; ++row) {
-    for (int col = 0; col < iProcessor.imgdata.sizes.raw_width; ++col) {
-      auto index = row * iProcessor.imgdata.sizes.raw_width + col;
-      if (row % 2 == 0) {
-        if (col % 2 == 0) {
-          rawdata[index * 3 + 0] = iProcessor.imgdata.rawdata.raw_image[index];
-        } else {
-          rawdata[index * 3 + 1] = iProcessor.imgdata.rawdata.raw_image[index];
+raw::RawFile CreateRawFile(LibRaw& _iProcessor) {
+    ZoneScoped;
+    auto thumbnail = CreateThumbnail(_iProcessor);
+    std::vector<uint16_t> rawdata(_iProcessor.imgdata.sizes.raw_width * _iProcessor.imgdata.sizes.raw_height * 3, 0);
+    std::cout << "col" << _iProcessor.COLOR(0, 0) << _iProcessor.imgdata.idata.cdesc << std::endl;
+    std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+    for (int row = 0; row < _iProcessor.imgdata.sizes.raw_height; ++row) {
+        for (int col = 0; col < _iProcessor.imgdata.sizes.raw_width; ++col) {
+            auto index = row * _iProcessor.imgdata.sizes.raw_width + col;
+            if (row % 2 == 0) {
+                if (col % 2 == 0) {
+                    rawdata[index * 3 + 0] = _iProcessor.imgdata.rawdata.raw_image[index];
+                } else {
+                    rawdata[index * 3 + 1] = _iProcessor.imgdata.rawdata.raw_image[index];
+                }
+            } else {
+                if (col % 2 == 0) {
+                    rawdata[index * 3 + 1] = _iProcessor.imgdata.rawdata.raw_image[index];
+                } else {
+                    rawdata[index * 3 + 2] = _iProcessor.imgdata.rawdata.raw_image[index];
+                }
+            }
         }
-      } else {
-        if (col % 2 == 0) {
-          rawdata[index * 3 + 1] = iProcessor.imgdata.rawdata.raw_image[index];
-        } else {
-          rawdata[index * 3 + 2] = iProcessor.imgdata.rawdata.raw_image[index];
-        }
-      }
     }
-  }
-  return {std::move(thumbnail), std::move(rawdata),
-          iProcessor.imgdata.sizes.raw_width,
-          iProcessor.imgdata.sizes.raw_height};
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+    std::cout << "Time taken: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << " ms"
+              << std::endl;
+    raw::RawFile raw_file;
+    raw_file.thumbnail = std::move(thumbnail);
+    raw_file.rawdata = std::move(rawdata);
+    raw_file.width = _iProcessor.imgdata.sizes.raw_width;
+    raw_file.height = _iProcessor.imgdata.sizes.raw_height;
+
+    return raw_file;
 }
 }  // namespace
 
 namespace raw {
 
-RawFile RawLoader::LoadRaw(const std::string& file_name) {
-  ZoneScoped;
-  std::cout << "Loading RAW" << std::endl;
+LibRaw RawLoader::LoadRaw(const std::string& file_name) {
+    ZoneScoped;
+    std::cout << "Loading RAW" << std::endl;
+    LibRaw i_processor;
 
-  // Let us create an image processor
-  LibRaw iProcessor;
+    // Let us create an image processor
 
-  // Open the file and read the metadata
-  iProcessor.open_file(file_name.c_str());
+    // Open the file and read the metadata
+    i_processor.open_file(file_name.c_str());
 
-  // The metadata are accessible through data fields of the class
-  printf("Image size: %d x %d\n", iProcessor.imgdata.sizes.width,
-         iProcessor.imgdata.sizes.height);
+    // The metadata are accessible through data fields of the class
+    printf("Image size: %d x %d\n", i_processor.imgdata.sizes.width, i_processor.imgdata.sizes.height);
 
-  // Fills iProcessor.rawdata.raw_image
-  iProcessor.unpack();
+    // Fills _iProcessor.rawdata.raw_image
+    i_processor.unpack();
 
-  if (iProcessor.unpack_thumb() != LibRaw_errors::LIBRAW_SUCCESS) {
-    std::cout << "error:" << iProcessor.unpack_thumb() << std::endl;
-  };
+    if (i_processor.unpack_thumb() != LibRaw_errors::LIBRAW_SUCCESS) {
+        std::cout << "error:" << i_processor.unpack_thumb() << std::endl;
+    };
 
-  // Convert from imgdata.rawdata to imgdata.image:
-  // iProcessor.raw2image();
-  std::cout << "Read Raw Image" << std::endl;
+    std::cout << "Read Raw Image" << std::endl;
+    std::cout << "Black level: " << i_processor.imgdata.rawdata.color.black << std::endl;
 
-  RawFile rawfile = CreateRawFile(iProcessor);
-  std::cout << "Created Raw Object" << std::endl;
-  iProcessor.recycle();
-  std::cout << "Recycled iProcessor" << std::endl;
-
-  return rawfile;
+    std::cout << "Created Raw Object" << std::endl;
+    return i_processor;
 }
 
 }  // namespace raw

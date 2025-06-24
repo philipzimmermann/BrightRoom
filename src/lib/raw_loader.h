@@ -1,16 +1,16 @@
 #pragma once
+#include <libraw/libraw.h>
 #include <string>
 #include "types.h"
 
 namespace raw {
 
 class RawLoader {
- public:
-  RawLoader() = default;
-  RawFile LoadRaw(const std::string& file_name);
+   public:
+    LibRaw LoadRaw(const std::string& file_name);
 
- private:
-  int cache;
+   private:
+    int _cache;
 };
 
 }  // namespace raw

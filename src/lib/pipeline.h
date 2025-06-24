@@ -1,13 +1,14 @@
 #pragma once
 
+#include <libraw/libraw.h>
 #include "types.h"
 namespace raw {
 
 class Pipeline {
- public:
-  Pipeline(){};
-  RgbImage Run(const RawFile& input) const;
+   public:
+    Pipeline(){};
+    RgbImage Run(LibRaw& input) const;
 
- private:
+   private:
 };
 }  // namespace raw
