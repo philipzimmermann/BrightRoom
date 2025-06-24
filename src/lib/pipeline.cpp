@@ -7,7 +7,7 @@
 
 namespace {
 
-std::vector<uint8_t> Demosaic(std::vector<float>& normalized_bayer, LibRaw& rawProcessor, int width, int height) {
+std::vector<float> Demosaic(std::vector<float>& normalized_bayer, LibRaw& rawProcessor, int width, int height) {
 
     auto get_pixel = [&](int y, int x) -> float {
         x = std::clamp(x, 0, width - 1);
@@ -15,7 +15,7 @@ std::vector<uint8_t> Demosaic(std::vector<float>& normalized_bayer, LibRaw& rawP
         return normalized_bayer[y * width + x];
     };
 
-    std::vector<uint8_t> rgb8(width * height * 3, 0);
+    std::vector<float> rgb(width * height * 3, 0);
 
     for (int row = 1; row < height - 1; row++) {
         for (int col = 1; col < width - 1; col++) {
@@ -50,18 +50,66 @@ std::vector<uint8_t> Demosaic(std::vector<float>& normalized_bayer, LibRaw& rawP
             }
 
             int idx = (row * width + col) * 3;
-            rgb8[idx + 0] = static_cast<uint8_t>(R * 255);
-            rgb8[idx + 1] = static_cast<uint8_t>(G * 255);
-            rgb8[idx + 2] = static_cast<uint8_t>(B * 255);
+            rgb[idx + 0] = R;
+            rgb[idx + 1] = G;
+            rgb[idx + 2] = B;
         }
     }
-    return rgb8;
+    return rgb;
 }
 
-raw::RGB8_Data ToRgb8(const raw::RawFloatData& rawdata) {
-    raw::RGB8_Data rgb_data(rawdata.size());
-    for (int i = 0; i < rawdata.size(); ++i) {
-        rgb_data[i] = rawdata[i] * 255;
+std::vector<float> WhiteBalance(std::vector<float>& rgb, LibRaw& rawProcessor) {
+    float wb_r = rawProcessor.imgdata.color.cam_mul[0];
+    float wb_g = rawProcessor.imgdata.color.cam_mul[1];
+    float wb_b = rawProcessor.imgdata.color.cam_mul[2];
+
+    auto max = std::max({wb_r, wb_g, wb_b});
+
+    std::cout << "wb_r: " << wb_r << ", wb_g: " << wb_g << ", wb_b: " << wb_b << std::endl;
+
+    for (int i = 0; i < rgb.size(); i++) {
+        if (i % 3 == 0) {
+            rgb[i] *= wb_r / max;
+        } else if (i % 3 == 1) {
+            rgb[i] *= wb_g / max;
+        } else {
+            rgb[i] *= wb_b / max;
+        }
+    }
+    return rgb;
+}
+
+std::vector<float> ColorSpaceConversion(std::vector<float>& rgb, LibRaw& rawProcessor) {
+    for (int i = 0; i < rgb.size(); i += 3) {
+        float R = rgb[i];
+        float G = rgb[i + 1];
+        float B = rgb[i + 2];
+
+        float r_srgb = rawProcessor.imgdata.color.rgb_cam[0][0] * R + rawProcessor.imgdata.color.rgb_cam[0][1] * G +
+                       rawProcessor.imgdata.color.rgb_cam[0][2] * B;
+        float g_srgb = rawProcessor.imgdata.color.rgb_cam[1][0] * R + rawProcessor.imgdata.color.rgb_cam[1][1] * G +
+                       rawProcessor.imgdata.color.rgb_cam[1][2] * B;
+        float b_srgb = rawProcessor.imgdata.color.rgb_cam[2][0] * R + rawProcessor.imgdata.color.rgb_cam[2][1] * G +
+                       rawProcessor.imgdata.color.rgb_cam[2][2] * B;
+
+        rgb[i] = r_srgb;
+        rgb[i + 1] = g_srgb;
+        rgb[i + 2] = b_srgb;
+    }
+    return rgb;
+}
+
+std::vector<float> GammaCorrection(std::vector<float>& rgb) {
+    for (int i = 0; i < rgb.size(); i++) {
+        rgb[i] = std::pow(std::clamp(rgb[i], 0.0f, 1.0f), 1.0f / 2.2f);  // sRGB gamma
+    }
+    return rgb;
+}
+
+raw::RGB8_Data ToRgb8(const std::vector<float>& rgb) {
+    raw::RGB8_Data rgb_data(rgb.size());
+    for (int i = 0; i < rgb.size(); ++i) {
+        rgb_data[i] = std::clamp(rgb[i] * 255, 0.0F, 255.0F);
     }
     return rgb_data;
 }
@@ -101,8 +149,23 @@ RgbImage Pipeline::Run(LibRaw& rawProcessor) const {
     }
 
     // Demosaic
-    auto rgb8 = Demosaic(normalized_bayer, rawProcessor, rawProcessor.imgdata.sizes.raw_width,
-                         rawProcessor.imgdata.sizes.raw_height);
+    auto rgb = Demosaic(normalized_bayer, rawProcessor, rawProcessor.imgdata.sizes.raw_width,
+                        rawProcessor.imgdata.sizes.raw_height);
+
+    // White balance
+    rgb = WhiteBalance(rgb, rawProcessor);
+
+    std::cout << "rgb max: " << *std::max_element(rgb.begin(), rgb.end()) << std::endl;
+    std::cout << "rgb min: " << *std::min_element(rgb.begin(), rgb.end()) << std::endl;
+
+    // sRGB
+    rgb = ColorSpaceConversion(rgb, rawProcessor);
+
+    // Gamma Correction
+    rgb = GammaCorrection(rgb);
+
+    // ToRgb8
+    auto rgb8 = ToRgb8(rgb);
 
     std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
     std::cout << "Pipeline time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()

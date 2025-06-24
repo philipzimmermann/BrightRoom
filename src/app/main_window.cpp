@@ -28,6 +28,7 @@
 #include "Tracy.hpp"
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), _imageLabel(new QLabel), _scrollArea(new QScrollArea) {
+    setWindowTitle("BrightRoom");
     _imageLabel->setBackgroundRole(QPalette::Base);
     _imageLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Ignored);
     _imageLabel->setScaledContents(true);
