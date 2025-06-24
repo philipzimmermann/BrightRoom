@@ -21,6 +21,7 @@
 #include <QScrollBar>
 #include <QStandardPaths>
 #include <QStatusBar>
+#include <QTimer>
 #include <iostream>
 
 #include "Tracy.hpp"
@@ -41,7 +42,9 @@ MainWindow::MainWindow(QWidget* parent)
     CreateActions();
 
     resize(QGuiApplication::primaryScreen()->availableSize() * 3 / 5);
-    LoadRaw("/media/philip/Data SSD/photos/2025/06/22/QI9B7671.CR2");
+    QTimer::singleShot(0, this, [this]() {
+        LoadRaw("/media/philip/Data SSD/photos/2025/06/22/QI9B7671.CR2");
+    });
 }
 
 bool MainWindow::LoadImage(const QString& fileName) {
@@ -77,15 +80,15 @@ bool MainWindow::LoadRaw(const QString& fileName) {
 
     const raw::Pipeline pipeline{};
     auto processed_image = pipeline.Run(raw_file);
-    QImage newImage(processed_image.pixels.data(), processed_image.width,
-                    processed_image.height, QImage::Format::Format_RGB888);
-    if (newImage.isNull()) {
+    QImage new_image(processed_image.pixels.data(), processed_image.width,
+                     processed_image.height, QImage::Format::Format_RGB888);
+    if (new_image.isNull()) {
         QMessageBox::information(this,
                                  QGuiApplication::applicationDisplayName(),
                                  tr("Cannot load %1: %2"));
         return false;
     }
-    SetImage(newImage);
+    SetImage(new_image);
 
     setWindowFilePath(fileName);
     const QString message = tr("Opened \"%1\", %2x%3, Depth: %4")
@@ -106,8 +109,8 @@ void MainWindow::SetImage(const QImage& new_image) {
     _scrollArea->setVisible(true);
     _fitToWindowAct->setEnabled(true);
     UpdateActions();
-    FitToWindow();
     _imageLabel->adjustSize();
+    FitToWindow();
 }
 
 static void initializeImageFileDialog(QFileDialog& dialog,
@@ -154,11 +157,11 @@ void MainWindow::Open() {
 }
 
 void MainWindow::ZoomIn() {
-    ScaleImage(1.25);
+    ScaleImage(_scaleFactor * 1.25);
 }
 
 void MainWindow::ZoomOut() {
-    ScaleImage(0.8);
+    ScaleImage(_scaleFactor * 0.8);
 }
 
 void MainWindow::NormalSize() {
@@ -167,12 +170,23 @@ void MainWindow::NormalSize() {
 }
 
 void MainWindow::FitToWindow() {
-    double scale =
-        std::max(static_cast<double>(_fullSizeImage.width()) /
-                     _imageLabel->pixmap(Qt::ReturnByValue).width(),
-                 static_cast<double>(_fullSizeImage.height()) /
-                     _imageLabel->pixmap(Qt::ReturnByValue).height());
-    ScaleImage(1 / scale);
+    // Get the size of the scroll area viewport (the visible area)
+
+    // Calculate scale factors for both width and height
+    double scaleWidth =
+        static_cast<double>(_scrollArea->viewport()->size().width()) /
+        _fullSizeImage.width();
+    double scaleHeight =
+        static_cast<double>(_scrollArea->viewport()->size().height()) /
+        _fullSizeImage.height();
+    std::cout << "Scale width: " << scaleWidth << std::endl;
+    std::cout << "Scale height: " << scaleHeight << std::endl;
+
+    // Use the larger scale factor to ensure the image fills the window
+    double scale = std::min(scaleWidth, scaleHeight);
+
+    // Apply the scaling
+    ScaleImage(scale);
 }
 
 void MainWindow::CreateActions() {
@@ -181,10 +195,6 @@ void MainWindow::CreateActions() {
     QAction* OpenAct =
         fileMenu->addAction(tr("&Open..."), this, &MainWindow::Open);
     OpenAct->setShortcut(QKeySequence::Open);
-
-    // printAct = fileMenu->addAction(tr("&Print..."), this, &MainWindow::Print);
-    // printAct->setShortcut(QKeySequence::Print);
-    // printAct->setEnabled(false);
 
     fileMenu->addSeparator();
 
@@ -225,19 +235,15 @@ void MainWindow::UpdateActions() {
     _normalSizeAct->setEnabled(!_fitToWindowAct->isChecked());
 }
 
-void MainWindow::ScaleImage(double factor) {
-    _scaleFactor *= factor;
-    _imageLabel->resize(_scaleFactor *
-                        _imageLabel->pixmap(Qt::ReturnByValue).size());
+void MainWindow::ScaleImage(double scale) {
+    _scaleFactor = std::clamp(scale, 0.1, 1.0);
+    _imageLabel->resize(_scaleFactor * _fullSizeImage.size());
 
-    AdjustScrollBar(_scrollArea->horizontalScrollBar(), factor);
-    AdjustScrollBar(_scrollArea->verticalScrollBar(), factor);
-
-    _zoomInAct->setEnabled(_scaleFactor < 3.0);
-    _zoomOutAct->setEnabled(_scaleFactor > 0.333);
+    AdjustScrollBar(_scrollArea->horizontalScrollBar(), scale);
+    AdjustScrollBar(_scrollArea->verticalScrollBar(), scale);
 }
 
-void MainWindow::AdjustScrollBar(QScrollBar* scrollBar, double factor) {
-    scrollBar->setValue(int(factor * scrollBar->value() +
-                            ((factor - 1) * scrollBar->pageStep() / 2)));
+void MainWindow::AdjustScrollBar(QScrollBar* scrollBar, double scale) {
+    scrollBar->setValue(int(scale * scrollBar->value() +
+                            ((scale - 1) * scrollBar->pageStep() / 2)));
 }
