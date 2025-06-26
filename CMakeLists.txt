@@ -14,15 +14,25 @@ find_package(Qt6 REQUIRED COMPONENTS Widgets)
 find_package (JPEG REQUIRED)
 find_package(OpenCV REQUIRED )
 
+if(NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/halide/lib/libHalide.so)
+    message(STATUS "Halide not found, fetching...")
+    execute_process(COMMAND ./scripts/fetch_halide.sh
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+endif()
+
 # Add Tracy profiler
 add_library(TracyClient STATIC submodules/thirdparty/tracy/public/TracyClient.cpp
                                 submodules/thirdparty/tracy/public/tracy/TracyOpenCL.hpp)
 target_include_directories(TracyClient PUBLIC submodules/thirdparty/tracy/public/tracy)
 target_compile_definitions(TracyClient PUBLIC TRACY_ENABLE=1)
 
+# LibRaw
 set(LIBRAW_PATH ${CMAKE_CURRENT_SOURCE_DIR}/submodules/thirdparty/LibRaw)
 add_subdirectory(submodules/thirdparty/LibRaw-cmake)
-# add_subdirectory(rawspeed)
+
+# Halide
+set(Halide_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/halide/lib/cmake/Halide)
+find_package(Halide REQUIRED)
 
 add_subdirectory(src/lib)
 

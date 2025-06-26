@@ -1,4 +1,5 @@
 #include "pipeline.h"
+#include <Halide.h>
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
