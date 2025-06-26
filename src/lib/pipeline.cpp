@@ -65,8 +65,6 @@ auto WhiteBalance(std::vector<float>& rgb, LibRaw& rawProcessor) -> std::vector<
 
     auto max = std::max({wb_r, wb_g, wb_b});
 
-    std::cout << "wb_r: " << wb_r << ", wb_g: " << wb_g << ", wb_b: " << wb_b << std::endl;
-
     for (int i = 0; i < rgb.size(); i++) {
         if (i % 3 == 0) {
             rgb[i] *= wb_r / max;
@@ -190,7 +188,6 @@ auto Pipeline::Run(LibRaw& rawProcessor) const -> RgbImage {
     auto white_level = static_cast<float>(rawProcessor.imgdata.color.maximum);
     std::vector<float> normalized_bayer(rawProcessor.imgdata.sizes.raw_width * rawProcessor.imgdata.sizes.raw_height,
                                         0);
-    std::cout << "white_level: " << white_level << std::endl;
     for (int row = 0; row < rawProcessor.imgdata.sizes.raw_height; row++) {
         for (int col = 0; col < rawProcessor.imgdata.sizes.raw_width; col++) {
             uint16_t* pixel =
@@ -218,9 +215,6 @@ auto Pipeline::Run(LibRaw& rawProcessor) const -> RgbImage {
     step_end = Clock::now();
     std::cout << "White balance: " << std::chrono::duration_cast<Duration>(step_end - step_start).count() << " ms"
               << std::endl;
-
-    std::cout << "rgb max: " << *std::max_element(rgb.begin(), rgb.end()) << std::endl;
-    std::cout << "rgb min: " << *std::min_element(rgb.begin(), rgb.end()) << std::endl;
 
     // Exposure compensation
     step_start = Clock::now();

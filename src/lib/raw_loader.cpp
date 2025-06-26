@@ -114,11 +114,7 @@ LibRaw RawLoader::LoadRaw(const std::string& file_name) {
     if (i_processor.unpack_thumb() != LibRaw_errors::LIBRAW_SUCCESS) {
         std::cout << "error:" << i_processor.unpack_thumb() << std::endl;
     };
-
     std::cout << "Read Raw Image" << std::endl;
-    std::cout << "Black level: " << i_processor.imgdata.rawdata.color.black << std::endl;
-
-    std::cout << "Created Raw Object" << std::endl;
     return i_processor;
 }
 
