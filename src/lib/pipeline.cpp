@@ -4,6 +4,9 @@
 #include <chrono>
 #include <cstdint>
 #include "iostream"
+#include "pipeline/bayer_color.h"
+#include "pipeline/black_level.h"
+#include "pipeline/white_level.h"
 #include "types.h"
 
 namespace {
@@ -163,7 +166,7 @@ auto ToRgb8(const std::vector<float>& rgb) -> raw::RGB8_Data {
 
 namespace raw {
 
-auto Pipeline::Run(LibRaw& rawProcessor) const -> RgbImage {
+auto SlowPipeline(LibRaw& rawProcessor) -> RgbImage {
     using Clock = std::chrono::steady_clock;
     using Duration = std::chrono::milliseconds;
 
@@ -266,5 +269,129 @@ auto Pipeline::Run(LibRaw& rawProcessor) const -> RgbImage {
               << " ms" << std::endl;
 
     return {rgb8, rawProcessor.imgdata.sizes.raw_width, rawProcessor.imgdata.sizes.raw_height};
+}
+
+auto HalidePipeline(LibRaw& rawProcessor) -> RgbImage {
+    using Clock = std::chrono::steady_clock;
+    using Duration = std::chrono::milliseconds;
+
+    auto total_start = Clock::now();
+
+    Halide::Var x("x"), y("y");
+
+    int filters = rawProcessor.imgdata.idata.filters;
+    Halide::Buffer<uint16_t> input_buffer(rawProcessor.imgdata.rawdata.raw_image, rawProcessor.imgdata.sizes.raw_width,
+                                          rawProcessor.imgdata.sizes.raw_height);
+
+    std::array<int, 4> cblack = {
+        static_cast<int>(rawProcessor.imgdata.color.cblack[0]),
+        static_cast<int>(rawProcessor.imgdata.color.cblack[1]),
+        static_cast<int>(rawProcessor.imgdata.color.cblack[2]),
+        static_cast<int>(rawProcessor.imgdata.color.cblack[3]),
+    };
+    auto black_adjusted = pipeline::BlackLevel(input_buffer, x, y, pipeline::FC(x, y, filters),
+                                               static_cast<int>(rawProcessor.imgdata.color.black), cblack);
+    black_adjusted.parallel(y);
+    black_adjusted.compile_jit();
+
+    auto step_start = Clock::now();
+    Halide::Buffer<uint16_t> black_adjusted_image =
+        black_adjusted.realize({rawProcessor.imgdata.sizes.raw_width, rawProcessor.imgdata.sizes.raw_height});
+
+    auto step_end = Clock::now();
+    std::cout << "Black level subtraction: " << std::chrono::duration_cast<Duration>(step_end - step_start).count()
+              << " ms" << std::endl;
+
+    // Normalize
+    auto white_adjusted =
+        pipeline::WhiteLevel(black_adjusted_image, x, y, static_cast<int>(rawProcessor.imgdata.color.maximum));
+    white_adjusted.parallel(y);
+    white_adjusted.compile_jit();
+
+    step_start = Clock::now();
+    Halide::Buffer<float> white_adjusted_image =
+        white_adjusted.realize({rawProcessor.imgdata.sizes.raw_width, rawProcessor.imgdata.sizes.raw_height});
+
+    step_end = Clock::now();
+    std::cout << "Normalization: " << std::chrono::duration_cast<Duration>(step_end - step_start).count() << " ms"
+              << std::endl;
+    // write to normalized_bayer
+    std::vector<float> normalized_bayer(rawProcessor.imgdata.sizes.raw_width * rawProcessor.imgdata.sizes.raw_height,
+                                        0);
+    for (int row = 0; row < rawProcessor.imgdata.sizes.raw_height; row++) {
+        for (int col = 0; col < rawProcessor.imgdata.sizes.raw_width; col++) {
+            normalized_bayer[row * rawProcessor.imgdata.sizes.raw_width + col] =
+                static_cast<float>(white_adjusted_image(col, row));
+        }
+    }
+
+    // Demosaic
+    step_start = Clock::now();
+    auto rgb = Demosaic(normalized_bayer, rawProcessor, rawProcessor.imgdata.sizes.raw_width,
+                        rawProcessor.imgdata.sizes.raw_height);
+    step_end = Clock::now();
+    std::cout << "Demosaicing: " << std::chrono::duration_cast<Duration>(step_end - step_start).count() << " ms"
+              << std::endl;
+
+    // White balance
+    step_start = Clock::now();
+    rgb = WhiteBalance(rgb, rawProcessor);
+    step_end = Clock::now();
+    std::cout << "White balance: " << std::chrono::duration_cast<Duration>(step_end - step_start).count() << " ms"
+              << std::endl;
+
+    // Exposure compensation
+    step_start = Clock::now();
+    float exposure = 3.0f;
+    rgb = ExposureCompensation(rgb, exposure);
+    step_end = Clock::now();
+    std::cout << "Exposure compensation: " << std::chrono::duration_cast<Duration>(step_end - step_start).count()
+              << " ms" << std::endl;
+
+    // Tone mapping
+    step_start = Clock::now();
+    rgb = ToneMapping(rgb);
+    step_end = Clock::now();
+    std::cout << "Tone mapping: " << std::chrono::duration_cast<Duration>(step_end - step_start).count() << " ms"
+              << std::endl;
+
+    // sRGB
+    step_start = Clock::now();
+    rgb = ColorSpaceConversion(rgb, rawProcessor);
+    step_end = Clock::now();
+    std::cout << "Color space conversion: " << std::chrono::duration_cast<Duration>(step_end - step_start).count()
+              << " ms" << std::endl;
+
+    // Gamma Correction
+    step_start = Clock::now();
+    rgb = GammaCorrection(rgb);
+    step_end = Clock::now();
+    std::cout << "Gamma correction: " << std::chrono::duration_cast<Duration>(step_end - step_start).count() << " ms"
+              << std::endl;
+
+    // Contrast Adjustment
+    step_start = Clock::now();
+    float contrast_factor = 1.5f;
+    rgb = ContrastAdjustment(rgb, contrast_factor);
+    step_end = Clock::now();
+    std::cout << "Contrast adjustment: " << std::chrono::duration_cast<Duration>(step_end - step_start).count() << " ms"
+              << std::endl;
+
+    // ToRgb8
+    step_start = Clock::now();
+    auto rgb8 = ToRgb8(rgb);
+    step_end = Clock::now();
+    std::cout << "RGB8 conversion: " << std::chrono::duration_cast<Duration>(step_end - step_start).count() << " ms"
+              << std::endl;
+
+    auto total_end = Clock::now();
+    std::cout << "Total pipeline time: " << std::chrono::duration_cast<Duration>(total_end - total_start).count()
+              << " ms" << std::endl;
+
+    return {rgb8, rawProcessor.imgdata.sizes.raw_width, rawProcessor.imgdata.sizes.raw_height};
+}
+
+auto Pipeline::Run(LibRaw& rawProcessor) const -> RgbImage {
+    return HalidePipeline(rawProcessor);
 }
 }  // namespace raw
