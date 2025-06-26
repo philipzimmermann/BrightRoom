@@ -7,7 +7,7 @@
 
 namespace {
 
-std::vector<float> Demosaic(std::vector<float>& normalized_bayer, LibRaw& rawProcessor, int width, int height) {
+auto Demosaic(std::vector<float>& normalized_bayer, LibRaw& rawProcessor, int width, int height) -> std::vector<float> {
 
     auto get_pixel = [&](int y, int x) -> float {
         x = std::clamp(x, 0, width - 1);
@@ -58,7 +58,7 @@ std::vector<float> Demosaic(std::vector<float>& normalized_bayer, LibRaw& rawPro
     return rgb;
 }
 
-std::vector<float> WhiteBalance(std::vector<float>& rgb, LibRaw& rawProcessor) {
+auto WhiteBalance(std::vector<float>& rgb, LibRaw& rawProcessor) -> std::vector<float> {
     float wb_r = rawProcessor.imgdata.color.cam_mul[0];
     float wb_g = rawProcessor.imgdata.color.cam_mul[1];
     float wb_b = rawProcessor.imgdata.color.cam_mul[2];
@@ -79,7 +79,7 @@ std::vector<float> WhiteBalance(std::vector<float>& rgb, LibRaw& rawProcessor) {
     return rgb;
 }
 
-std::vector<float> ToneMapping(std::vector<float>& rgb, float key_value = 0.18f) {
+auto ToneMapping(std::vector<float>& rgb, float key_value = 0.18f) -> std::vector<float> {
     // First calculate the log average luminance
     float log_sum = 0.0f;
     std::vector<float> luminance(rgb.size() / 3);
@@ -111,7 +111,7 @@ std::vector<float> ToneMapping(std::vector<float>& rgb, float key_value = 0.18f)
     return rgb;
 }
 
-std::vector<float> ColorSpaceConversion(std::vector<float>& rgb, LibRaw& rawProcessor) {
+auto ColorSpaceConversion(std::vector<float>& rgb, LibRaw& rawProcessor) -> std::vector<float> {
     for (int i = 0; i < rgb.size(); i += 3) {
         float R = rgb[i];
         float G = rgb[i + 1];
@@ -131,28 +131,28 @@ std::vector<float> ColorSpaceConversion(std::vector<float>& rgb, LibRaw& rawProc
     return rgb;
 }
 
-std::vector<float> ExposureCompensation(std::vector<float>& rgb, float exposure) {
+auto ExposureCompensation(std::vector<float>& rgb, float exposure) -> std::vector<float> {
     for (int i = 0; i < rgb.size(); i++) {
         rgb[i] *= exposure;
     }
     return rgb;
 }
 
-std::vector<float> GammaCorrection(std::vector<float>& rgb) {
+auto GammaCorrection(std::vector<float>& rgb) -> std::vector<float> {
     for (int i = 0; i < rgb.size(); i++) {
         rgb[i] = std::pow(std::clamp(rgb[i], 0.0f, 1.0f), 1.0f / 2.2f);  // sRGB gamma
     }
     return rgb;
 }
 
-std::vector<float> ContrastAdjustment(std::vector<float>& rgb, float contrast, float midpoint = 0.5f) {
+auto ContrastAdjustment(std::vector<float>& rgb, float contrast, float midpoint = 0.5f) -> std::vector<float> {
     for (int i = 0; i < rgb.size(); i++) {
         rgb[i] = std::clamp((rgb[i] - midpoint) * contrast + midpoint, 0.0f, 1.0f);
     }
     return rgb;
 }
 
-raw::RGB8_Data ToRgb8(const std::vector<float>& rgb) {
+auto ToRgb8(const std::vector<float>& rgb) -> raw::RGB8_Data {
     raw::RGB8_Data rgb_data(rgb.size());
     for (int i = 0; i < rgb.size(); ++i) {
         rgb_data[i] = std::clamp(rgb[i] * 255, 0.0F, 255.0F);
@@ -164,7 +164,7 @@ raw::RGB8_Data ToRgb8(const std::vector<float>& rgb) {
 
 namespace raw {
 
-RgbImage Pipeline::Run(LibRaw& rawProcessor) const {
+auto Pipeline::Run(LibRaw& rawProcessor) const -> RgbImage {
     using Clock = std::chrono::steady_clock;
     using Duration = std::chrono::milliseconds;
 

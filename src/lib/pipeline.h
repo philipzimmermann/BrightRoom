@@ -6,8 +6,8 @@ namespace raw {
 
 class Pipeline {
    public:
-    Pipeline(){};
-    RgbImage Run(LibRaw& input) const;
+    Pipeline() = default;
+    auto Run(LibRaw& rawProcessor) const -> RgbImage;
 
    private:
 };
