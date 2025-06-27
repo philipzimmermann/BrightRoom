@@ -7,6 +7,7 @@ add_library(${PROJECT_NAME}_lib STATIC
     pipeline/bayer_color.h
     pipeline/black_level.h
     pipeline/white_level.h
+    pipeline/demosaic_bilinear.h
 )
 target_link_libraries(${PROJECT_NAME}_lib 
     PRIVATE Qt6::Widgets

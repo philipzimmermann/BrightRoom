@@ -6,6 +6,7 @@
 #include "iostream"
 #include "pipeline/bayer_color.h"
 #include "pipeline/black_level.h"
+#include "pipeline/demosaic_bilinear.h"
 #include "pipeline/white_level.h"
 #include "types.h"
 
@@ -315,23 +316,35 @@ auto HalidePipeline(LibRaw& rawProcessor) -> RgbImage {
     step_end = Clock::now();
     std::cout << "Normalization: " << std::chrono::duration_cast<Duration>(step_end - step_start).count() << " ms"
               << std::endl;
-    // write to normalized_bayer
-    std::vector<float> normalized_bayer(rawProcessor.imgdata.sizes.raw_width * rawProcessor.imgdata.sizes.raw_height,
-                                        0);
-    for (int row = 0; row < rawProcessor.imgdata.sizes.raw_height; row++) {
-        for (int col = 0; col < rawProcessor.imgdata.sizes.raw_width; col++) {
-            normalized_bayer[row * rawProcessor.imgdata.sizes.raw_width + col] =
-                static_cast<float>(white_adjusted_image(col, row));
-        }
-    }
 
     // Demosaic
     step_start = Clock::now();
-    auto rgb = Demosaic(normalized_bayer, rawProcessor, rawProcessor.imgdata.sizes.raw_width,
-                        rawProcessor.imgdata.sizes.raw_height);
+    Halide::Var c("c");
+
+    auto demosaiced = pipeline::DemosaicBilinear(white_adjusted_image, x, y, c, pipeline::FC(x, y, filters));
+    Halide::Var x_outer("x_outer"), y_outer("y_outer"), x_inner("x_inner"), y_inner("y_inner");
+    demosaiced.parallel(y).vectorize(x, 8);
+    demosaiced.compile_jit();
+    step_start = Clock::now();
+    Halide::Buffer<float> demosaiced_image =
+        demosaiced.realize({rawProcessor.imgdata.sizes.raw_width, rawProcessor.imgdata.sizes.raw_height, 3});
+
     step_end = Clock::now();
     std::cout << "Demosaicing: " << std::chrono::duration_cast<Duration>(step_end - step_start).count() << " ms"
               << std::endl;
+
+    // write to rgb
+    std::vector<float> rgb(rawProcessor.imgdata.sizes.raw_width * rawProcessor.imgdata.sizes.raw_height * 3, 0);
+    for (int row = 0; row < rawProcessor.imgdata.sizes.raw_height; row++) {
+        for (int col = 0; col < rawProcessor.imgdata.sizes.raw_width; col++) {
+            rgb[row * rawProcessor.imgdata.sizes.raw_width * 3 + col * 3 + 0] =
+                static_cast<float>(demosaiced_image(col, row, 0));
+            rgb[row * rawProcessor.imgdata.sizes.raw_width * 3 + col * 3 + 1] =
+                static_cast<float>(demosaiced_image(col, row, 1));
+            rgb[row * rawProcessor.imgdata.sizes.raw_width * 3 + col * 3 + 2] =
+                static_cast<float>(demosaiced_image(col, row, 2));
+        }
+    }
 
     // White balance
     step_start = Clock::now();
