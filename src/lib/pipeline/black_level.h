@@ -4,7 +4,7 @@
 
 namespace raw::pipeline {
 
-inline auto BlackLevel(Halide::Buffer<uint16_t> input, Halide::Var x, Halide::Var y, Halide::Func fc, int black,
+inline auto BlackLevel(Halide::Func input, Halide::Var x, Halide::Var y, Halide::Func fc, int black,
                        const std::array<int, 4>& cblack) -> Halide::Func {
     auto black_value = Halide::cast<uint16_t>(
         static_cast<int>(black) +

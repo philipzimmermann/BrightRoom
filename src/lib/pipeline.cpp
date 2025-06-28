@@ -3,10 +3,15 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
+#include <exception>
 #include "iostream"
 #include "pipeline/bayer_color.h"
 #include "pipeline/black_level.h"
 #include "pipeline/demosaic_bilinear.h"
+#include "pipeline/exposure.h"
+#include "pipeline/halide_pipeline.h"
+#include "pipeline/tone_mapping.h"
+#include "pipeline/white_balance.h"
 #include "pipeline/white_level.h"
 #include "types.h"
 
@@ -188,7 +193,7 @@ auto SlowPipeline(LibRaw& rawProcessor) -> RgbImage {
     std::cout << "Black level subtraction: " << std::chrono::duration_cast<Duration>(step_end - step_start).count()
               << " ms" << std::endl;
 
-    // Normalize
+    // White Level
     step_start = Clock::now();
     auto white_level = static_cast<float>(rawProcessor.imgdata.color.maximum);
     std::vector<float> normalized_bayer(rawProcessor.imgdata.sizes.raw_width * rawProcessor.imgdata.sizes.raw_height,
@@ -203,7 +208,7 @@ auto SlowPipeline(LibRaw& rawProcessor) -> RgbImage {
         }
     }
     step_end = Clock::now();
-    std::cout << "Normalization: " << std::chrono::duration_cast<Duration>(step_end - step_start).count() << " ms"
+    std::cout << "White level: " << std::chrono::duration_cast<Duration>(step_end - step_start).count() << " ms"
               << std::endl;
 
     // Demosaic
@@ -277,131 +282,115 @@ auto HalidePipeline(LibRaw& rawProcessor) -> RgbImage {
     using Duration = std::chrono::milliseconds;
 
     auto total_start = Clock::now();
+    try {
 
-    Halide::Var x("x"), y("y");
+        Halide::Var x("x"), y("y");
 
-    int filters = rawProcessor.imgdata.idata.filters;
-    Halide::Buffer<uint16_t> input_buffer(rawProcessor.imgdata.rawdata.raw_image, rawProcessor.imgdata.sizes.raw_width,
-                                          rawProcessor.imgdata.sizes.raw_height);
+        int filters = rawProcessor.imgdata.idata.filters;
+        Halide::Buffer<uint16_t> input_buffer(rawProcessor.imgdata.rawdata.raw_image,
+                                              rawProcessor.imgdata.sizes.raw_width,
+                                              rawProcessor.imgdata.sizes.raw_height);
+        Halide::Func input = Halide::BoundaryConditions::repeat_edge(input_buffer);
 
-    std::array<int, 4> cblack = {
-        static_cast<int>(rawProcessor.imgdata.color.cblack[0]),
-        static_cast<int>(rawProcessor.imgdata.color.cblack[1]),
-        static_cast<int>(rawProcessor.imgdata.color.cblack[2]),
-        static_cast<int>(rawProcessor.imgdata.color.cblack[3]),
-    };
-    auto black_adjusted = pipeline::BlackLevel(input_buffer, x, y, pipeline::FC(x, y, filters),
-                                               static_cast<int>(rawProcessor.imgdata.color.black), cblack);
-    black_adjusted.parallel(y);
-    black_adjusted.compile_jit();
+        auto fc = pipeline::FC(x, y, filters);
 
-    auto step_start = Clock::now();
-    Halide::Buffer<uint16_t> black_adjusted_image =
-        black_adjusted.realize({rawProcessor.imgdata.sizes.raw_width, rawProcessor.imgdata.sizes.raw_height});
+        // Black level
+        std::array<int, 4> cblack = {
+            static_cast<int>(rawProcessor.imgdata.color.cblack[0]),
+            static_cast<int>(rawProcessor.imgdata.color.cblack[1]),
+            static_cast<int>(rawProcessor.imgdata.color.cblack[2]),
+            static_cast<int>(rawProcessor.imgdata.color.cblack[3]),
+        };
 
-    auto step_end = Clock::now();
-    std::cout << "Black level subtraction: " << std::chrono::duration_cast<Duration>(step_end - step_start).count()
-              << " ms" << std::endl;
+        auto black_adjusted =
+            pipeline::BlackLevel(input, x, y, fc, static_cast<int>(rawProcessor.imgdata.color.black), cblack);
 
-    // Normalize
-    auto white_adjusted =
-        pipeline::WhiteLevel(black_adjusted_image, x, y, static_cast<int>(rawProcessor.imgdata.color.maximum));
-    white_adjusted.parallel(y);
-    white_adjusted.compile_jit();
+        // White Level
+        auto white_adjusted =
+            pipeline::WhiteLevel(black_adjusted, x, y, static_cast<int>(rawProcessor.imgdata.color.maximum));
 
-    step_start = Clock::now();
-    Halide::Buffer<float> white_adjusted_image =
-        white_adjusted.realize({rawProcessor.imgdata.sizes.raw_width, rawProcessor.imgdata.sizes.raw_height});
+        // Demosaic
+        Halide::Var c("c");
 
-    step_end = Clock::now();
-    std::cout << "Normalization: " << std::chrono::duration_cast<Duration>(step_end - step_start).count() << " ms"
-              << std::endl;
+        auto demosaiced = pipeline::DemosaicBilinear(white_adjusted, x, y, c, fc);
 
-    // Demosaic
-    step_start = Clock::now();
-    Halide::Var c("c");
+        // White balance
+        float wb_r = rawProcessor.imgdata.color.cam_mul[0];
+        float wb_g = rawProcessor.imgdata.color.cam_mul[1];
+        float wb_b = rawProcessor.imgdata.color.cam_mul[2];
+        auto max = std::max({wb_r, wb_g, wb_b});
+        wb_r /= max;
+        wb_g /= max;
+        wb_b /= max;
+        auto white_balanced = pipeline::WhiteBalance(demosaiced, x, y, c, {wb_r, wb_g, wb_b});
 
-    auto demosaiced = pipeline::DemosaicBilinear(white_adjusted_image, x, y, c, pipeline::FC(x, y, filters));
-    Halide::Var x_outer("x_outer"), y_outer("y_outer"), x_inner("x_inner"), y_inner("y_inner");
-    demosaiced.parallel(y).vectorize(x, 8);
-    demosaiced.compile_jit();
-    step_start = Clock::now();
-    Halide::Buffer<float> demosaiced_image =
-        demosaiced.realize({rawProcessor.imgdata.sizes.raw_width, rawProcessor.imgdata.sizes.raw_height, 3});
+        // Exposure compensation
+        float exposure = 3.0f;
+        auto exposure_adjusted = pipeline::Exposure(white_balanced, x, y, c, exposure);
 
-    step_end = Clock::now();
-    std::cout << "Demosaicing: " << std::chrono::duration_cast<Duration>(step_end - step_start).count() << " ms"
-              << std::endl;
+        // Tone mapping
+        auto log_sum = pipeline::LogSum(exposure_adjusted, x, y, rawProcessor.imgdata.sizes.raw_width,
+                                        rawProcessor.imgdata.sizes.raw_height);
+        Halide::Buffer<float> log_sum_buf = log_sum.realize();
+        float log_avg = std::exp(log_sum_buf(0) / static_cast<float>(rawProcessor.imgdata.sizes.raw_width *
+                                                                     rawProcessor.imgdata.sizes.raw_height));
 
-    // write to rgb
-    std::vector<float> rgb(rawProcessor.imgdata.sizes.raw_width * rawProcessor.imgdata.sizes.raw_height * 3, 0);
-    for (int row = 0; row < rawProcessor.imgdata.sizes.raw_height; row++) {
-        for (int col = 0; col < rawProcessor.imgdata.sizes.raw_width; col++) {
-            rgb[row * rawProcessor.imgdata.sizes.raw_width * 3 + col * 3 + 0] =
-                static_cast<float>(demosaiced_image(col, row, 0));
-            rgb[row * rawProcessor.imgdata.sizes.raw_width * 3 + col * 3 + 1] =
-                static_cast<float>(demosaiced_image(col, row, 1));
-            rgb[row * rawProcessor.imgdata.sizes.raw_width * 3 + col * 3 + 2] =
-                static_cast<float>(demosaiced_image(col, row, 2));
+        auto tone_mapped = pipeline::ToneMapping(exposure_adjusted, x, y, c, log_avg, 0.18f);
+
+        // sRGB
+        const std::array<std::array<float, 3>, 3> rgb_cam = {
+            {{rawProcessor.imgdata.color.rgb_cam[0][0], rawProcessor.imgdata.color.rgb_cam[0][1],
+              rawProcessor.imgdata.color.rgb_cam[0][2]},
+             {rawProcessor.imgdata.color.rgb_cam[1][0], rawProcessor.imgdata.color.rgb_cam[1][1],
+              rawProcessor.imgdata.color.rgb_cam[1][2]},
+             {rawProcessor.imgdata.color.rgb_cam[2][0], rawProcessor.imgdata.color.rgb_cam[2][1],
+              rawProcessor.imgdata.color.rgb_cam[2][2]}}};
+        auto srgb = pipeline::ColorSpaceConversion(tone_mapped, x, y, c, rgb_cam);
+
+        // Gamma Correction
+        auto gamma_corrected = pipeline::GammaCorrection(srgb, x, y, c);
+
+        // Contrast Adjustment
+        float contrast_factor = 1.5f;
+        auto contrast_adjusted = pipeline::ContrastAdjustment(gamma_corrected, x, y, c, contrast_factor);
+
+        // ToRgb8
+        auto rgb8 = pipeline::ToRgb8(contrast_adjusted, x, y, c);
+
+        fc.compute_root().parallel(y);
+        black_adjusted.compute_root().parallel(y);
+        white_adjusted.compute_root().parallel(y);
+        demosaiced.compute_root().parallel(y).vectorize(x, 8);
+        white_balanced.compute_root().parallel(y);
+        exposure_adjusted.compute_root().parallel(y).vectorize(x, 8);
+        tone_mapped.compute_root().parallel(y).vectorize(x, 8);
+        srgb.compute_root().parallel(y).vectorize(x, 8);
+        gamma_corrected.compute_root().parallel(y).vectorize(x, 8);
+        contrast_adjusted.compute_root().parallel(y).vectorize(x, 8);
+        rgb8.compute_root().parallel(y).vectorize(x, 8);
+
+        Halide::Buffer<uint8_t> rgb8_image =
+            rgb8.realize({rawProcessor.imgdata.sizes.raw_width, rawProcessor.imgdata.sizes.raw_height, 3});
+        std::vector<uint8_t> rgb8_vector(rawProcessor.imgdata.sizes.raw_width * rawProcessor.imgdata.sizes.raw_height *
+                                         3);
+        // memcpy(rgb8_vector.data(), rgb8_image.data(), rgb8_vector.size() * sizeof(uint8_t));
+        for (int x = 0; x < rawProcessor.imgdata.sizes.raw_width; x++) {
+            for (int y = 0; y < rawProcessor.imgdata.sizes.raw_height; y++) {
+                for (int c = 0; c < 3; c++) {
+                    rgb8_vector[y * rawProcessor.imgdata.sizes.raw_width * 3 + x * 3 + c] = rgb8_image(x, y, c);
+                }
+            }
         }
+
+        auto total_end = Clock::now();
+        std::cout << "Total pipeline time: " << std::chrono::duration_cast<Duration>(total_end - total_start).count()
+                  << " ms" << std::endl;
+
+        return {rgb8_vector, rawProcessor.imgdata.sizes.raw_width, rawProcessor.imgdata.sizes.raw_height};
+    } catch (const Halide::Error& e) {
+        std::cout << "Error: " << e.what() << std::endl;
     }
-
-    // White balance
-    step_start = Clock::now();
-    rgb = WhiteBalance(rgb, rawProcessor);
-    step_end = Clock::now();
-    std::cout << "White balance: " << std::chrono::duration_cast<Duration>(step_end - step_start).count() << " ms"
-              << std::endl;
-
-    // Exposure compensation
-    step_start = Clock::now();
-    float exposure = 3.0f;
-    rgb = ExposureCompensation(rgb, exposure);
-    step_end = Clock::now();
-    std::cout << "Exposure compensation: " << std::chrono::duration_cast<Duration>(step_end - step_start).count()
-              << " ms" << std::endl;
-
-    // Tone mapping
-    step_start = Clock::now();
-    rgb = ToneMapping(rgb);
-    step_end = Clock::now();
-    std::cout << "Tone mapping: " << std::chrono::duration_cast<Duration>(step_end - step_start).count() << " ms"
-              << std::endl;
-
-    // sRGB
-    step_start = Clock::now();
-    rgb = ColorSpaceConversion(rgb, rawProcessor);
-    step_end = Clock::now();
-    std::cout << "Color space conversion: " << std::chrono::duration_cast<Duration>(step_end - step_start).count()
-              << " ms" << std::endl;
-
-    // Gamma Correction
-    step_start = Clock::now();
-    rgb = GammaCorrection(rgb);
-    step_end = Clock::now();
-    std::cout << "Gamma correction: " << std::chrono::duration_cast<Duration>(step_end - step_start).count() << " ms"
-              << std::endl;
-
-    // Contrast Adjustment
-    step_start = Clock::now();
-    float contrast_factor = 1.5f;
-    rgb = ContrastAdjustment(rgb, contrast_factor);
-    step_end = Clock::now();
-    std::cout << "Contrast adjustment: " << std::chrono::duration_cast<Duration>(step_end - step_start).count() << " ms"
-              << std::endl;
-
-    // ToRgb8
-    step_start = Clock::now();
-    auto rgb8 = ToRgb8(rgb);
-    step_end = Clock::now();
-    std::cout << "RGB8 conversion: " << std::chrono::duration_cast<Duration>(step_end - step_start).count() << " ms"
-              << std::endl;
-
-    auto total_end = Clock::now();
-    std::cout << "Total pipeline time: " << std::chrono::duration_cast<Duration>(total_end - total_start).count()
-              << " ms" << std::endl;
-
-    return {rgb8, rawProcessor.imgdata.sizes.raw_width, rawProcessor.imgdata.sizes.raw_height};
+    return {raw::RGB8_Data(0), 0, 0};
 }
 
 auto Pipeline::Run(LibRaw& rawProcessor) const -> RgbImage {

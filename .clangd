@@ -1,3 +1,3 @@
 CompileFlags:
-  CompilationDatabase: out/build/Clang
+  CompilationDatabase: out/build/Release
   Add: [-std=c++23] 

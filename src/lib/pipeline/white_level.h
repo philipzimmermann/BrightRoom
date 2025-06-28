@@ -4,7 +4,7 @@
 
 namespace raw::pipeline {
 
-inline auto WhiteLevel(Halide::Buffer<uint16_t> input, Halide::Var x, Halide::Var y, int white) -> Halide::Func {
+inline auto WhiteLevel(Halide::Func input, Halide::Var x, Halide::Var y, int white) -> Halide::Func {
     Halide::Func output("white_level");
 
     // Convert to float, divide by white level, and clamp between 0 and 1
