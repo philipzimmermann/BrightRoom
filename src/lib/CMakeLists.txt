@@ -4,14 +4,7 @@ add_library(${PROJECT_NAME}_lib STATIC
     pipeline.cpp
     pipeline.h
     types.h
-    pipeline/bayer_color.h
-    pipeline/black_level.h
-    pipeline/white_level.h
-    pipeline/demosaic_bilinear.h
-    pipeline/white_balance.h
-    pipeline/exposure.h
-    pipeline/tone_mapping.h
-    pipeline/halide_pipeline.h
+    halide_pipeline.h
 )
 target_link_libraries(${PROJECT_NAME}_lib 
     PRIVATE Qt6::Widgets

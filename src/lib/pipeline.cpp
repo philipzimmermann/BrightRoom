@@ -3,16 +3,8 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
-#include <exception>
-#include "iostream"
-#include "pipeline/bayer_color.h"
-#include "pipeline/black_level.h"
-#include "pipeline/demosaic_bilinear.h"
-#include "pipeline/exposure.h"
-#include "pipeline/halide_pipeline.h"
-#include "pipeline/tone_mapping.h"
-#include "pipeline/white_balance.h"
-#include "pipeline/white_level.h"
+#include <iostream>
+#include "halide_pipeline.h"
 #include "types.h"
 
 namespace {
@@ -331,7 +323,16 @@ auto HalidePipeline(LibRaw& rawProcessor) -> RgbImage {
         // Tone mapping
         auto log_sum = pipeline::LogSum(exposure_adjusted, x, y, rawProcessor.imgdata.sizes.raw_width,
                                         rawProcessor.imgdata.sizes.raw_height);
+
+        log_sum.compile_jit();
+        std::cout << "\nLog sum: " << std::endl;
+        auto step_start = Clock::now();
         Halide::Buffer<float> log_sum_buf = log_sum.realize();
+        std::cout << "Log sum realize took: " << std::chrono::duration_cast<Duration>(Clock::now() - step_start).count()
+                  << " ms" << std::endl;
+        log_sum.print_loop_nest();
+        std::cout << std::endl;
+
         float log_avg = std::exp(log_sum_buf(0) / static_cast<float>(rawProcessor.imgdata.sizes.raw_width *
                                                                      rawProcessor.imgdata.sizes.raw_height));
 
@@ -357,17 +358,21 @@ auto HalidePipeline(LibRaw& rawProcessor) -> RgbImage {
         // ToRgb8
         auto rgb8 = pipeline::ToRgb8(contrast_adjusted, x, y, c);
 
-        fc.compute_root().parallel(y);
-        black_adjusted.compute_root().parallel(y);
-        white_adjusted.compute_root().parallel(y);
-        demosaiced.compute_root().parallel(y).vectorize(x, 8);
-        white_balanced.compute_root().parallel(y);
-        exposure_adjusted.compute_root().parallel(y).vectorize(x, 8);
-        tone_mapped.compute_root().parallel(y).vectorize(x, 8);
-        srgb.compute_root().parallel(y).vectorize(x, 8);
-        gamma_corrected.compute_root().parallel(y).vectorize(x, 8);
-        contrast_adjusted.compute_root().parallel(y).vectorize(x, 8);
-        rgb8.compute_root().parallel(y).vectorize(x, 8);
+        // fc.compute_root().parallel(y);
+        // black_adjusted.compute_root().parallel(y);
+        // white_adjusted.compute_root().parallel(y);
+        // demosaiced.compute_root().parallel(y).vectorize(x, 8);
+        // white_balanced.compute_root().parallel(y);
+        // exposure_adjusted.compute_root().parallel(y).vectorize(x, 8);
+        // tone_mapped.compute_root().parallel(y).vectorize(x, 8);
+        // srgb.compute_root().parallel(y).vectorize(x, 8);
+        // gamma_corrected.compute_root().parallel(y).vectorize(x, 8);
+        // contrast_adjusted.compute_root().parallel(y).vectorize(x, 8);
+        // rgb8.compute_root().parallel(y).vectorize(x, 8);
+
+        rgb8.compile_jit();
+
+        step_start = Clock::now();
 
         Halide::Buffer<uint8_t> rgb8_image =
             rgb8.realize({rawProcessor.imgdata.sizes.raw_width, rawProcessor.imgdata.sizes.raw_height, 3});
@@ -381,9 +386,16 @@ auto HalidePipeline(LibRaw& rawProcessor) -> RgbImage {
                 }
             }
         }
+        auto step_end = Clock::now();
+        std::cout << "Rgb8: \n";
+        std::cout << "Realize time: " << std::chrono::duration_cast<Duration>(step_end - step_start).count() << " ms"
+                  << std::endl;
 
-        auto total_end = Clock::now();
-        std::cout << "Total pipeline time: " << std::chrono::duration_cast<Duration>(total_end - total_start).count()
+        std::cout << "Pseudo-code for the schedule:\n";
+        rgb8.print_loop_nest();
+        std::cout << std::endl;
+
+        std::cout << "Total pipeline time: " << std::chrono::duration_cast<Duration>(Clock::now() - total_start).count()
                   << " ms" << std::endl;
 
         return {rgb8_vector, rawProcessor.imgdata.sizes.raw_width, rawProcessor.imgdata.sizes.raw_height};
