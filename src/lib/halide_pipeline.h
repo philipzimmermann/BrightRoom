@@ -86,11 +86,20 @@ inline auto LogSum(Halide::Func input, Halide::Var x, Halide::Var y, int width, 
     Halide::Func log_luminance("log_luminance");
     log_luminance(x, y) = Halide::log(Halide::max(luminance(x, y), 1e-6f));
 
-    // luminance.compute_root().parallel(y).vectorize(x, 8);
-    //     log_luminance.compute_root().parallel(y).vectorize(x, 8);
     Halide::RDom r(0, width, 0, height);
     Halide::Func log_sum("log_sum");
     log_sum() = Halide::sum(log_luminance(r.x, r.y));
+
+    Halide::Var yo, yi;
+    log_luminance.split(y, yo, yi, 16);
+    log_luminance.parallel(yo);
+    log_luminance.vectorize(x, 8);
+    log_luminance.compute_root();
+
+    luminance.store_at(log_luminance, yo);
+    luminance.compute_at(log_luminance, yi);
+    luminance.vectorize(x, 8);
+
     return log_sum;
 }
 

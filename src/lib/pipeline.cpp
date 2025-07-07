@@ -204,42 +204,51 @@ auto HalidePipeline(LibRaw& rawProcessor) -> RgbImage {
         // ToRgb8
         auto rgb8 = halide::ToRgb8(contrast_adjusted, x, y, c);
 
-        // fc.compute_root().parallel(y);
-        // black_adjusted.compute_root().parallel(y);
-        // white_adjusted.compute_root().parallel(y);
-        // demosaiced.compute_root().parallel(y).vectorize(x, 8);
-        // white_balanced.compute_root().parallel(y);
-        // exposure_adjusted.compute_root().parallel(y).vectorize(x, 8);
-        // tone_mapped.compute_root().parallel(y).vectorize(x, 8);
-        // srgb.compute_root().parallel(y).vectorize(x, 8);
-        // gamma_corrected.compute_root().parallel(y).vectorize(x, 8);
-        // contrast_adjusted.compute_root().parallel(y).vectorize(x, 8);
-        // rgb8.compute_root().parallel(y).vectorize(x, 8);
+        // -------------------------------- Schedule --------------------------------
+        Halide::Var yo("yo");
+        Halide::Var yi("yi");
 
+        rgb8.split(y, yo, yi, 32).parallel(yo).vectorize(x, 16);
+        contrast_adjusted.store_at(rgb8, yo).compute_at(rgb8, yi).vectorize(x, 8);
+        gamma_corrected.store_at(rgb8, yo).compute_at(rgb8, yi).vectorize(x, 8);
+        srgb.store_at(rgb8, yo).compute_at(rgb8, yi).vectorize(x, 8);
+        tone_mapped.store_at(rgb8, yo).compute_at(rgb8, yi).vectorize(x, 8);
+        demosaiced.store_at(rgb8, yo).compute_at(rgb8, yi).vectorize(x, 8);
+        white_adjusted.compute_root().split(y, yo, yi, 32).parallel(yo).vectorize(x, 16);
+        black_adjusted.compute_root().split(y, yo, yi, 32).parallel(yo).vectorize(x, 16);
+        // fc.compute_root();
+
+        step_start = Clock::now();
         rgb8.compile_jit();
+        std::cout << "Compile JIT time: " << std::chrono::duration_cast<Duration>(Clock::now() - step_start).count()
+                  << " ms" << std::endl;
 
         step_start = Clock::now();
 
         Halide::Buffer<uint8_t> rgb8_image =
             rgb8.realize({rawProcessor.imgdata.sizes.raw_width, rawProcessor.imgdata.sizes.raw_height, 3});
+
         std::vector<uint8_t> rgb8_vector(rawProcessor.imgdata.sizes.raw_width * rawProcessor.imgdata.sizes.raw_height *
                                          3);
-        // memcpy(rgb8_vector.data(), rgb8_image.data(), rgb8_vector.size() * sizeof(uint8_t));
-        for (int x = 0; x < rawProcessor.imgdata.sizes.raw_width; x++) {
-            for (int y = 0; y < rawProcessor.imgdata.sizes.raw_height; y++) {
-                for (int c = 0; c < 3; c++) {
-                    rgb8_vector[y * rawProcessor.imgdata.sizes.raw_width * 3 + x * 3 + c] = rgb8_image(x, y, c);
-                }
-            }
-        }
-        auto step_end = Clock::now();
         std::cout << "Rgb8: \n";
-        std::cout << "Realize time: " << std::chrono::duration_cast<Duration>(step_end - step_start).count() << " ms"
+        std::cout << "Realize time: " << std::chrono::duration_cast<Duration>(Clock::now() - step_start).count()
+                  << " ms" << std::endl;
+
+        step_start = Clock::now();
+        memcpy(rgb8_vector.data(), rgb8_image.data(), rgb8_vector.size() * sizeof(uint8_t));
+        // for (int x = 0; x < rawProcessor.imgdata.sizes.raw_width; x++) {
+        //     for (int y = 0; y < rawProcessor.imgdata.sizes.raw_height; y++) {
+        //         for (int c = 0; c < 3; c++) {
+        //             rgb8_vector[y * rawProcessor.imgdata.sizes.raw_width * 3 + x * 3 + c] = rgb8_image(x, y, c);
+        //         }
+        //     }
+        // }
+        std::cout << "Memcpy time: " << std::chrono::duration_cast<Duration>(Clock::now() - step_start).count() << " ms"
                   << std::endl;
 
-        std::cout << "Pseudo-code for the schedule:\n";
-        rgb8.print_loop_nest();
-        std::cout << std::endl;
+        // std::cout << "Pseudo-code for the schedule:\n";
+        // rgb8.print_loop_nest();
+        // std::cout << std::endl;
 
         std::cout << "Total pipeline time: " << std::chrono::duration_cast<Duration>(Clock::now() - total_start).count()
                   << " ms" << std::endl;
