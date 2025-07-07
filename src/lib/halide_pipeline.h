@@ -2,7 +2,7 @@
 
 #include <Halide.h>
 
-namespace raw::pipeline {
+namespace halide {
 
 inline auto FC(Halide::Var x, Halide::Var y, int filters) -> Halide::Func {
     Halide::Func fc("fc");
@@ -150,4 +150,4 @@ inline auto ToRgb8(Halide::Func input, Halide::Var x, Halide::Var y, Halide::Var
     return rgb8;
 }
 
-}  // namespace raw::pipeline
+}  // namespace halide

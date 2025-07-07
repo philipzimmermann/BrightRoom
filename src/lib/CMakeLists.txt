@@ -5,6 +5,8 @@ add_library(${PROJECT_NAME}_lib STATIC
     pipeline.h
     types.h
     halide_pipeline.h
+    classic_pipeline.cpp
+    classic_pipeline.h
 )
 target_link_libraries(${PROJECT_NAME}_lib 
     PRIVATE Qt6::Widgets
