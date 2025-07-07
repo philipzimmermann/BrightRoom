@@ -296,6 +296,8 @@ auto HalidePipelineGen(LibRaw& rawProcessor) -> RgbImage {
     }
 
     Halide::Buffer<uint8_t> rgb8_buffer(rawProcessor.imgdata.sizes.raw_width, rawProcessor.imgdata.sizes.raw_height, 3);
+    // auto rgb8_buffer = Halide::Buffer<uint8_t>::make_interleaved(rawProcessor.imgdata.sizes.raw_width,
+    //                                                              rawProcessor.imgdata.sizes.raw_height, 3);
     std::cout << "Running generator..." << std::endl;
 
     // Call the generator with all parameters
@@ -310,13 +312,25 @@ auto HalidePipelineGen(LibRaw& rawProcessor) -> RgbImage {
                                         1.5f,                         // Contrast factor
                                         rgb8_buffer.raw_buffer());
     std::cout << "Generator error: " << error << std::endl;
+    std::cout << "Generator time: " << std::chrono::duration_cast<Duration>(Clock::now() - step_start).count() << " ms"
+              << std::endl;
 
     // Copy the result to a vector
+    step_start = Clock::now();
     std::vector<uint8_t> rgb8_vector(rawProcessor.imgdata.sizes.raw_width * rawProcessor.imgdata.sizes.raw_height * 3);
-    memcpy(rgb8_vector.data(), rgb8_buffer.data(), rgb8_vector.size() * sizeof(uint8_t));
 
-    auto total_end = Clock::now();
-    std::cout << "Total pipeline time: " << std::chrono::duration_cast<Duration>(total_end - total_start).count()
+    for (int y = 0; y < rawProcessor.imgdata.sizes.raw_height; y++) {
+        for (int x = 0; x < rawProcessor.imgdata.sizes.raw_width; x++) {
+            for (int c = 0; c < 3; c++) {
+                rgb8_vector[y * rawProcessor.imgdata.sizes.raw_width * 3 + x * 3 + c] = rgb8_buffer(x, y, c);
+            }
+        }
+    }
+    // memcpy(rgb8_vector.data(), rgb8_buffer.data(), rgb8_vector.size() * sizeof(uint8_t));
+    std::cout << "Copy time: " << std::chrono::duration_cast<Duration>(Clock::now() - step_start).count() << " ms"
+              << std::endl;
+
+    std::cout << "Total pipeline time: " << std::chrono::duration_cast<Duration>(Clock::now() - total_start).count()
               << " ms" << std::endl;
 
     return {rgb8_vector, rawProcessor.imgdata.sizes.raw_width, rawProcessor.imgdata.sizes.raw_height};

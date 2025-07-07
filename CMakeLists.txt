@@ -13,6 +13,8 @@ set(CMAKE_AUTOUIC ON)
 find_package(Qt6 REQUIRED COMPONENTS Widgets)
 find_package (JPEG REQUIRED)
 find_package(OpenCV REQUIRED )
+# find_package(OpenMP REQUIRED)
+
 
 if(NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/halide/lib/libHalide.so)
     message(STATUS "Halide not found, fetching...")

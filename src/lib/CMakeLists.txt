@@ -17,6 +17,7 @@ target_link_libraries(${PROJECT_NAME}_lib
     PRIVATE ${OpenCV_LIBS}
     PRIVATE Halide::Halide
     PRIVATE raw_pipeline_generator
+    # PRIVATE OpenMP::OpenMP_CXX
     TracyClient)
     
 target_include_directories(${PROJECT_NAME}_lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
