@@ -1,8 +1,12 @@
 #pragma once
 
+#include <QDockWidget>
 #include <QLabel>
 #include <QMainWindow>
 #include <QScrollArea>
+#include <QSlider>
+#include "libraw/libraw.h"
+#include "pipeline.h"
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -21,6 +25,7 @@ class MainWindow : public QMainWindow {
     void ZoomOut();
     void NormalSize();
     void FitToWindow();
+    void OnExposureChanged();
 
    private:
     void CreateActions();
@@ -29,6 +34,8 @@ class MainWindow : public QMainWindow {
     void SetImage(const QImage& new_image);
     void ScaleImage(double requested_zoom);
     void AdjustScrollBar(QScrollBar* scroll_bar, double zoom_change);
+    void CreateAdjustmentsDock();
+    void RefreshImage();
 
     QImage _fullSizeImage;
     QImage _scaledImage;
@@ -44,4 +51,10 @@ class MainWindow : public QMainWindow {
 
     bool _isDragging = false;
     QPoint _lastDragPos;
+
+    QDockWidget* _adjustmentsDock;
+    QSlider* _exposureSlider;
+
+    std::unique_ptr<LibRaw> _currentRaw;
+    raw::Parameters _parameters;
 };

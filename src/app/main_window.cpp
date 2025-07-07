@@ -23,11 +23,13 @@
 #include <QStandardPaths>
 #include <QStatusBar>
 #include <QTimer>
+#include <QVBoxLayout>
 #include <iostream>
 
 #include "Tracy.hpp"
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), _imageLabel(new QLabel), _scrollArea(new QScrollArea) {
+    _parameters = raw::Parameters{3.0f, 1.5f, 1.0f};
     setWindowTitle("BrightRoom");
     _imageLabel->setBackgroundRole(QPalette::Base);
     _imageLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Ignored);
@@ -39,10 +41,43 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), _imageLabel(new Q
     _scrollArea->viewport()->installEventFilter(this);
     setCentralWidget(_scrollArea);
 
+    CreateAdjustmentsDock();
     CreateActions();
 
     resize(QGuiApplication::primaryScreen()->availableSize() * 3 / 5);
     QTimer::singleShot(0, this, [this]() { LoadRaw("/media/philip/Data SSD/photos/2025/06/22/QI9B7671.CR2"); });
+}
+
+void MainWindow::CreateAdjustmentsDock() {
+    _adjustmentsDock = new QDockWidget(tr("Adjustments"), this);
+    _adjustmentsDock->setAllowedAreas(Qt::RightDockWidgetArea | Qt::LeftDockWidgetArea);
+
+    auto* adjustmentsWidget = new QWidget(_adjustmentsDock);
+    auto* layout = new QVBoxLayout(adjustmentsWidget);
+
+    // Add exposure slider
+    QLabel* exposureLabel = new QLabel(tr("Exposure"), adjustmentsWidget);
+    _exposureSlider = new QSlider(Qt::Horizontal, adjustmentsWidget);
+    _exposureSlider->setRange(0, 100);  // Range from -1.0 to +1.0 (will be scaled)
+    _exposureSlider->setValue(0);       // Default to no exposure adjustment
+    _exposureSlider->setTickPosition(QSlider::TicksBelow);
+    _exposureSlider->setTickInterval(50);
+
+    layout->addWidget(exposureLabel);
+    layout->addWidget(_exposureSlider);
+    layout->addStretch();
+
+    adjustmentsWidget->setLayout(layout);
+    _adjustmentsDock->setWidget(adjustmentsWidget);
+    addDockWidget(Qt::RightDockWidgetArea, _adjustmentsDock);
+
+    connect(_exposureSlider, &QSlider::sliderReleased, this, &MainWindow::OnExposureChanged);
+}
+
+void MainWindow::OnExposureChanged() {
+    // Convert slider value to exposure factor (exponential scale)
+    _parameters.exposure = _exposureSlider->value() / 100.0f * 10.0f;
+    RefreshImage();
 }
 
 bool MainWindow::LoadImage(const QString& fileName) {
@@ -69,13 +104,11 @@ bool MainWindow::LoadImage(const QString& fileName) {
 bool MainWindow::LoadRaw(const QString& fileName) {
     ZoneScopedN("LoadRaw");
     raw::RawLoader loader{};
-    auto raw_file = loader.LoadRaw(fileName.toStdString());
-
-    // const QImage newImage(thumbnail.pixels.data(), thumbnail.width,
-    //                       thumbnail.height, QImage::Format::Format_RGB888);
+    _currentRaw = loader.LoadRaw(fileName.toStdString());
 
     const raw::Pipeline pipeline{};
-    auto processed_image = pipeline.Run(raw_file);
+
+    auto processed_image = pipeline.Run(*_currentRaw, _parameters);
     QImage new_image(processed_image.pixels.data(), processed_image.width, processed_image.height,
                      QImage::Format::Format_RGB888);
     if (new_image.isNull()) {
@@ -297,4 +330,19 @@ bool MainWindow::eventFilter(QObject* obj, QEvent* event) {
         }
     }
     return QMainWindow::eventFilter(obj, event);
+}
+
+void MainWindow::RefreshImage() {
+    if (!_currentRaw) {
+        return;
+    }
+
+    const raw::Pipeline pipeline{};
+    auto processed_image = pipeline.Run(*_currentRaw, _parameters);
+    QImage new_image(processed_image.pixels.data(), processed_image.width, processed_image.height,
+                     QImage::Format::Format_RGB888);
+
+    if (!new_image.isNull()) {
+        SetImage(new_image);
+    }
 }

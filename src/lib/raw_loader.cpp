@@ -95,24 +95,24 @@ raw::RawFile CreateRawFile(LibRaw& _iProcessor) {
 
 namespace raw {
 
-LibRaw RawLoader::LoadRaw(const std::string& file_name) {
+std::unique_ptr<LibRaw> RawLoader::LoadRaw(const std::string& file_name) {
     ZoneScoped;
     std::cout << "Loading RAW" << std::endl;
-    LibRaw i_processor;
+    auto i_processor = std::make_unique<LibRaw>();
 
     // Let us create an image processor
 
     // Open the file and read the metadata
-    i_processor.open_file(file_name.c_str());
+    i_processor->open_file(file_name.c_str());
 
     // The metadata are accessible through data fields of the class
-    printf("Image size: %d x %d\n", i_processor.imgdata.sizes.width, i_processor.imgdata.sizes.height);
+    printf("Image size: %d x %d\n", i_processor->imgdata.sizes.width, i_processor->imgdata.sizes.height);
 
     // Fills _iProcessor.rawdata.raw_image
-    i_processor.unpack();
+    i_processor->unpack();
 
-    if (i_processor.unpack_thumb() != LibRaw_errors::LIBRAW_SUCCESS) {
-        std::cout << "error:" << i_processor.unpack_thumb() << std::endl;
+    if (i_processor->unpack_thumb() != LibRaw_errors::LIBRAW_SUCCESS) {
+        std::cout << "error:" << i_processor->unpack_thumb() << std::endl;
     };
     std::cout << "Read Raw Image" << std::endl;
     return i_processor;

@@ -11,6 +11,8 @@
 
 namespace raw {
 
+namespace {
+
 auto ClassicPipeline(LibRaw& rawProcessor) -> RgbImage {
     using Clock = std::chrono::steady_clock;
     using Duration = std::chrono::milliseconds;
@@ -261,7 +263,7 @@ auto HalidePipeline(LibRaw& rawProcessor) -> RgbImage {
     return {raw::RGB8_Data(0), 0, 0};
 }
 
-auto HalidePipelineGen(LibRaw& rawProcessor) -> RgbImage {
+auto HalidePipelineGen(LibRaw& rawProcessor, const Parameters& parameters) -> RgbImage {
     using Clock = std::chrono::steady_clock;
     using Duration = std::chrono::milliseconds;
     auto total_start = Clock::now();
@@ -307,7 +309,7 @@ auto HalidePipelineGen(LibRaw& rawProcessor) -> RgbImage {
                                         cblack_buffer.raw_buffer(),  // Per-channel black levels
                                         static_cast<int>(rawProcessor.imgdata.color.maximum),  // White level
                                         wb_factors.raw_buffer(),                               // White balance factors
-                                        3.0f,                                                  // Exposure compensation
+                                        parameters.exposure,                                   // Exposure compensation
                                         rgb_cam_buffer.raw_buffer(),  // Color space conversion matrix
                                         1.5f,                         // Contrast factor
                                         rgb8_buffer.raw_buffer());
@@ -335,8 +337,9 @@ auto HalidePipelineGen(LibRaw& rawProcessor) -> RgbImage {
 
     return {rgb8_vector, rawProcessor.imgdata.sizes.raw_width, rawProcessor.imgdata.sizes.raw_height};
 }
+}  // namespace
 
-auto Pipeline::Run(LibRaw& rawProcessor) const -> RgbImage {
-    return HalidePipelineGen(rawProcessor);
+auto Pipeline::Run(LibRaw& rawProcessor, const Parameters& parameters) const -> RgbImage {
+    return HalidePipelineGen(rawProcessor, parameters);
 }
 }  // namespace raw
