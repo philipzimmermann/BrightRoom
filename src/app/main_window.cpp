@@ -45,7 +45,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), _imageLabel(new Q
     CreateActions();
 
     resize(QGuiApplication::primaryScreen()->availableSize() * 3 / 5);
-    QTimer::singleShot(0, this, [this]() { LoadRaw("/media/philip/Data SSD/photos/2025/06/22/QI9B7671.CR2"); });
+    // QTimer::singleShot(0, this, [this]() { LoadRaw("/media/philip/Data SSD/photos/2025/06/22/QI9B7671.CR2"); });
 }
 
 void MainWindow::CreateAdjustmentsDock() {
