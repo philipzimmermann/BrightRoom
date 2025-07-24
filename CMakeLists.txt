@@ -15,11 +15,14 @@ find_package (JPEG REQUIRED)
 find_package(OpenCV REQUIRED )
 # find_package(OpenMP REQUIRED)
 
-
-if(NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/halide/lib/libHalide.so)
-    message(STATUS "Halide not found, fetching...")
-    execute_process(COMMAND ./scripts/fetch_halide.sh
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+if(WIN32 AND NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/halide/lib/Release/Halide.lib)
+  message(STATUS "Halide not found, fetching...")
+  execute_process(COMMAND ./scripts/fetch_halide.ps1
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+elseif(NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/halide/lib/libHalide.so)
+  message(STATUS "Halide not found, fetching...")
+  execute_process(COMMAND ./scripts/fetch_halide.sh
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 endif()
 
 # Add Tracy profiler

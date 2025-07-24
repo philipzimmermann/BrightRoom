@@ -36,3 +36,4 @@ out
 .cache
 compile_commands.json
 halide
+build
