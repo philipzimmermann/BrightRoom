@@ -6,8 +6,8 @@
 #include <QScrollArea>
 #include <QSlider>
 #include "libraw/libraw.h"
-#include "pipeline.h"
 #include "my_slider.h"
+#include "pipeline.h"
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -30,8 +30,7 @@ class MainWindow : public QMainWindow {
    private:
     void CreateActions();
     void CreateMenus();
-    void UpdateActions();
-    void SetImage(const QImage& new_image);
+    void SetImage(const QImage& new_image, bool fit_to_window);
     void ScaleImage(double requested_zoom);
     void AdjustScrollBar(QScrollBar* scroll_bar, double zoom_change);
     void CreateAdjustmentsDock();
@@ -60,6 +59,6 @@ class MainWindow : public QMainWindow {
     MySlider* _saturationSlider;
 
     std::unique_ptr<LibRaw> _currentRaw;
-    raw::Parameters _parameters;
+    raw::Parameters _parameters{};
     raw::Pipeline _pipeline;
 };

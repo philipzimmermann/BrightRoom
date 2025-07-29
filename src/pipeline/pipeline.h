@@ -8,6 +8,11 @@ struct Parameters {
     float exposure = 1.0f;
     float contrast = 1.0f;
     float saturation = 1.0f;
+
+    auto ToString() const -> std::string {
+        return "Exposure: " + std::to_string(exposure) + ", Contrast: " + std::to_string(contrast) +
+               ", Saturation: " + std::to_string(saturation);
+    }
 };
 
 class Pipeline {

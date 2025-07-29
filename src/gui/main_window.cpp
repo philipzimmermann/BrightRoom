@@ -1,6 +1,6 @@
 #include "main_window.h"
 #include <qimage.h>
-
+#include <iostream>
 #include "pipeline.h"
 #include "raw_loader.h"
 
@@ -28,7 +28,6 @@
 #include "Tracy.hpp"
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), _imageLabel(new QLabel), _scrollArea(new QScrollArea) {
-    _parameters = raw::Parameters{3.0f, 1.5f, 1.0f};
     setWindowTitle("BrightRoom");
     _imageLabel->setBackgroundRole(QPalette::Base);
     _imageLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Ignored);
@@ -142,7 +141,7 @@ bool MainWindow::LoadImage(const QString& fileName) {
             tr("Cannot load %1: %2").arg(QDir::toNativeSeparators(fileName), reader.errorString()));
         return false;
     }
-    SetImage(new_image);
+    SetImage(new_image, true);
     setWindowFilePath(fileName);
     const QString message = tr("Opened \"%1\", %2x%3, Depth: %4")
                                 .arg(QDir::toNativeSeparators(fileName))
@@ -165,7 +164,7 @@ bool MainWindow::LoadRaw(const QString& fileName) {
         QMessageBox::information(this, QGuiApplication::applicationDisplayName(), tr("Cannot load %1: %2"));
         return false;
     }
-    SetImage(new_image);
+    SetImage(new_image, true);
 
     setWindowFilePath(fileName);
     const QString message = tr("Opened \"%1\", %2x%3, Depth: %4")
@@ -177,7 +176,7 @@ bool MainWindow::LoadRaw(const QString& fileName) {
     return true;
 }
 
-void MainWindow::SetImage(const QImage& new_image) {
+void MainWindow::SetImage(const QImage& new_image, bool fit_to_window) {
     _fullSizeImage = new_image;
     if (_fullSizeImage.colorSpace().isValid()) {
         _fullSizeImage.convertToColorSpace(QColorSpace::SRgb);
@@ -185,9 +184,12 @@ void MainWindow::SetImage(const QImage& new_image) {
     _imageLabel->setPixmap(QPixmap::fromImage(_fullSizeImage));
     _scrollArea->setVisible(true);
     _fitToWindowAct->setEnabled(true);
-    UpdateActions();
     _imageLabel->adjustSize();
-    FitToWindow();
+    if (fit_to_window) {
+        FitToWindow();
+    } else {
+        ScaleImage(_zoom);
+    }
 }
 
 static void initializeImageFileDialog(QFileDialog& dialog, QFileDialog::AcceptMode acceptMode) {
@@ -268,28 +270,21 @@ void MainWindow::CreateActions() {
 
     _zoomInAct = viewMenu->addAction(tr("Zoom &In (25%)"), this, &MainWindow::ZoomIn);
     _zoomInAct->setShortcut(QKeySequence::ZoomIn);
-    _zoomInAct->setEnabled(false);
+    // _zoomInAct->setEnabled(false);
 
     _zoomOutAct = viewMenu->addAction(tr("Zoom &Out (25%)"), this, &MainWindow::ZoomOut);
     _zoomOutAct->setShortcut(QKeySequence::ZoomOut);
-    _zoomOutAct->setEnabled(false);
+    // _zoomOutAct->setEnabled(false);
 
     _normalSizeAct = viewMenu->addAction(tr("&Normal Size"), this, &MainWindow::NormalSize);
     _normalSizeAct->setShortcut(tr("Ctrl+S"));
-    _normalSizeAct->setEnabled(false);
+    // _normalSizeAct->setEnabled(false);
 
     viewMenu->addSeparator();
 
     _fitToWindowAct = viewMenu->addAction(tr("&Fit to Window"), this, &MainWindow::FitToWindow);
-    _fitToWindowAct->setEnabled(false);
-    _fitToWindowAct->setCheckable(true);
+    // _fitToWindowAct->setEnabled(false);
     _fitToWindowAct->setShortcut(tr("Ctrl+F"));
-}
-
-void MainWindow::UpdateActions() {
-    _zoomInAct->setEnabled(!_fitToWindowAct->isChecked());
-    _zoomOutAct->setEnabled(!_fitToWindowAct->isChecked());
-    _normalSizeAct->setEnabled(!_fitToWindowAct->isChecked());
 }
 
 void MainWindow::ScaleImage(double requested_zoom) {
@@ -387,11 +382,12 @@ void MainWindow::RefreshImage() {
         return;
     }
 
+    std::cout << "Generating image with params: " << _parameters.ToString() << std::endl;
     auto processed_image = _pipeline.Run(*_currentRaw, _parameters);
     QImage new_image(processed_image.pixels.data(), processed_image.width, processed_image.height,
                      QImage::Format::Format_RGB888);
 
     if (!new_image.isNull()) {
-        SetImage(new_image);
+        SetImage(new_image, false);
     }
 }
