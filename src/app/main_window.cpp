@@ -24,7 +24,6 @@
 #include <QStatusBar>
 #include <QTimer>
 #include <QVBoxLayout>
-#include <iostream>
 
 #include "Tracy.hpp"
 
@@ -37,9 +36,15 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), _imageLabel(new Q
 
     _scrollArea->setBackgroundRole(QPalette::Dark);
     _scrollArea->setWidget(_imageLabel);
-    _scrollArea->setVisible(false);
+    _scrollArea->setVisible(true);
     _scrollArea->viewport()->installEventFilter(this);
     setCentralWidget(_scrollArea);
+
+    // Initialize the refresh timer
+    _refreshTimer = new QTimer(this);
+    _refreshTimer->setSingleShot(true);
+    _refreshTimer->setInterval(150);  // 150ms debounce delay
+    connect(_refreshTimer, &QTimer::timeout, this, &MainWindow::RefreshImage);
 
     CreateAdjustmentsDock();
     CreateActions();
@@ -55,13 +60,15 @@ void MainWindow::CreateAdjustmentsDock() {
     auto* adjustmentsWidget = new QWidget(_adjustmentsDock);
     auto* layout = new QVBoxLayout(adjustmentsWidget);
 
+    // Set a minimum width for the adjustments widget
+    adjustmentsWidget->setMinimumWidth(200);
+
     // Add exposure slider
     QLabel* exposureLabel = new QLabel(tr("Exposure"), adjustmentsWidget);
     _exposureSlider = new QSlider(Qt::Horizontal, adjustmentsWidget);
-    _exposureSlider->setRange(0, 100);  // Range from -1.0 to +1.0 (will be scaled)
-    _exposureSlider->setValue(0);       // Default to no exposure adjustment
+    _exposureSlider->setRange(-100, 100);  // Range from -1.0 to +1.0 (will be scaled)
+    _exposureSlider->setValue(0);          // Default to no exposure adjustment
     _exposureSlider->setTickPosition(QSlider::TicksBelow);
-    _exposureSlider->setTickInterval(50);
 
     layout->addWidget(exposureLabel);
     layout->addWidget(_exposureSlider);
@@ -71,13 +78,15 @@ void MainWindow::CreateAdjustmentsDock() {
     _adjustmentsDock->setWidget(adjustmentsWidget);
     addDockWidget(Qt::RightDockWidgetArea, _adjustmentsDock);
 
-    connect(_exposureSlider, &QSlider::sliderReleased, this, &MainWindow::OnExposureChanged);
+    // Connect slider to parameter update and queue refresh
+    connect(_exposureSlider, &QSlider::valueChanged, this, [this]() {
+        _parameters.exposure = std::pow(2.0f, static_cast<float>(_exposureSlider->value()) / 33.0f);
+        QueueImageRefresh();
+    });
 }
 
-void MainWindow::OnExposureChanged() {
-    // Convert slider value to exposure factor (exponential scale)
-    _parameters.exposure = _exposureSlider->value() / 100.0f * 10.0f;
-    RefreshImage();
+void MainWindow::QueueImageRefresh() {
+    _refreshTimer->start();
 }
 
 bool MainWindow::LoadImage(const QString& fileName) {
@@ -106,9 +115,7 @@ bool MainWindow::LoadRaw(const QString& fileName) {
     raw::RawLoader loader{};
     _currentRaw = loader.LoadRaw(fileName.toStdString());
 
-    const raw::Pipeline pipeline{};
-
-    auto processed_image = pipeline.Run(*_currentRaw, _parameters);
+    auto processed_image = _pipeline.Run(*_currentRaw, _parameters);
     QImage new_image(processed_image.pixels.data(), processed_image.width, processed_image.height,
                      QImage::Format::Format_RGB888);
     if (new_image.isNull()) {
@@ -337,8 +344,7 @@ void MainWindow::RefreshImage() {
         return;
     }
 
-    const raw::Pipeline pipeline{};
-    auto processed_image = pipeline.Run(*_currentRaw, _parameters);
+    auto processed_image = _pipeline.Run(*_currentRaw, _parameters);
     QImage new_image(processed_image.pixels.data(), processed_image.width, processed_image.height,
                      QImage::Format::Format_RGB888);
 

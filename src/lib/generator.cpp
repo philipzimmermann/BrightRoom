@@ -43,15 +43,15 @@ class RawPipelineGenerator : public Halide::Generator<RawPipelineGenerator> {
         Func exposure_adjusted = halide_gen::Exposure(white_balanced, x, y, c, exposure);
 
         // Tone mapping
-        Func log_sum = halide_gen::LogSum(exposure_adjusted, x, y, input.width(), input.height());
-        log_sum.compute_root();
+        // Func log_sum = halide_gen::LogSum(exposure_adjusted, x, y, input.width(), input.height());
+        // log_sum.compute_root();
 
-        Expr log_avg = Halide::exp(log_sum() / Halide::cast<float>(input.width() * input.height()));
+        // Expr log_avg = Halide::exp(log_sum() / Halide::cast<float>(input.width() * input.height()));
 
-        auto tone_mapped = halide_gen::ToneMapping(exposure_adjusted, x, y, c, log_avg, 0.18f);
+        // auto tone_mapped = halide_gen::ToneMapping(exposure_adjusted, x, y, c, log_avg, 0.18f);
 
         // Color space conversion
-        Func srgb = halide_gen::ColorSpaceConversion(tone_mapped, x, y, c, rgb_cam);
+        Func srgb = halide_gen::ColorSpaceConversion(exposure_adjusted, x, y, c, rgb_cam);
 
         // Gamma correction
         Func gamma_corrected = halide_gen::GammaCorrection(srgb, x, y, c);
@@ -79,7 +79,7 @@ class RawPipelineGenerator : public Halide::Generator<RawPipelineGenerator> {
             contrast_adjusted.store_at(output, yo).compute_at(output, yi).vectorize(x, 8);
             gamma_corrected.store_at(output, yo).compute_at(output, yi).vectorize(x, 8);
             srgb.store_at(output, yo).compute_at(output, yi).vectorize(x, 8);
-            tone_mapped.store_at(output, yo).compute_at(output, yi).vectorize(x, 8);
+            // tone_mapped.store_at(output, yo).compute_at(output, yi).vectorize(x, 8);
             demosaiced.compute_root().vectorize(x, 8);
             white_adjusted.compute_root().split(y, yo, yi, 32).parallel(yo).vectorize(x, 16);
             black_adjusted.compute_root().split(y, yo, yi, 32).parallel(yo).vectorize(x, 16);

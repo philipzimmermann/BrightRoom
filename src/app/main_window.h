@@ -25,7 +25,6 @@ class MainWindow : public QMainWindow {
     void ZoomOut();
     void NormalSize();
     void FitToWindow();
-    void OnExposureChanged();
 
    private:
     void CreateActions();
@@ -36,6 +35,7 @@ class MainWindow : public QMainWindow {
     void AdjustScrollBar(QScrollBar* scroll_bar, double zoom_change);
     void CreateAdjustmentsDock();
     void RefreshImage();
+    void QueueImageRefresh();
 
     QImage _fullSizeImage;
     QImage _scaledImage;
@@ -54,7 +54,9 @@ class MainWindow : public QMainWindow {
 
     QDockWidget* _adjustmentsDock;
     QSlider* _exposureSlider;
+    QTimer* _refreshTimer;
 
     std::unique_ptr<LibRaw> _currentRaw;
     raw::Parameters _parameters;
+    raw::Pipeline _pipeline;
 };
