@@ -65,13 +65,34 @@ void MainWindow::CreateAdjustmentsDock() {
 
     // Add exposure slider
     QLabel* exposureLabel = new QLabel(tr("Exposure"), adjustmentsWidget);
-    _exposureSlider = new QSlider(Qt::Horizontal, adjustmentsWidget);
+    _exposureSlider = new MySlider(Qt::Horizontal, adjustmentsWidget);
     _exposureSlider->setRange(-100, 100);  // Range from -1.0 to +1.0 (will be scaled)
     _exposureSlider->setValue(0);          // Default to no exposure adjustment
     _exposureSlider->setTickPosition(QSlider::TicksBelow);
+    _exposureSlider->setTickInterval(33);
+
+    // Add contrast slider
+    QLabel* contrastLabel = new QLabel(tr("Contrast"), adjustmentsWidget);
+    _contrastSlider = new MySlider(Qt::Horizontal, adjustmentsWidget);
+    _contrastSlider->setRange(-100, 100);  // Range from -1.0 to +1.0 (will be scaled)
+    _contrastSlider->setValue(0);          // Default to no contrast adjustment
+    _contrastSlider->setTickPosition(QSlider::TicksBelow);
+    _contrastSlider->setTickInterval(33);
+
+    // Add saturation slider
+    QLabel* saturationLabel = new QLabel(tr("Saturation"), adjustmentsWidget);
+    _saturationSlider = new MySlider(Qt::Horizontal, adjustmentsWidget);
+    _saturationSlider->setRange(-100, 100);  // Range from -1.0 to +1.0 (will be scaled)
+    _saturationSlider->setValue(0);          // Default to no saturation adjustment
+    _saturationSlider->setTickPosition(QSlider::TicksBelow);
+    _saturationSlider->setTickInterval(33);
 
     layout->addWidget(exposureLabel);
     layout->addWidget(_exposureSlider);
+    layout->addWidget(contrastLabel);
+    layout->addWidget(_contrastSlider);
+    layout->addWidget(saturationLabel);
+    layout->addWidget(_saturationSlider);
     layout->addStretch();
 
     adjustmentsWidget->setLayout(layout);
@@ -81,6 +102,28 @@ void MainWindow::CreateAdjustmentsDock() {
     // Connect slider to parameter update and queue refresh
     connect(_exposureSlider, &QSlider::valueChanged, this, [this]() {
         _parameters.exposure = std::pow(2.0f, static_cast<float>(_exposureSlider->value()) / 33.0f);
+        QueueImageRefresh();
+    });
+    connect(_exposureSlider, &MySlider::doubleClicked, this, [this]() {
+        _exposureSlider->setValue(0);
+        QueueImageRefresh();
+    });
+
+    connect(_contrastSlider, &QSlider::valueChanged, this, [this]() {
+        _parameters.contrast = std::pow(1.5f, static_cast<float>(_contrastSlider->value()) / 33.0f);
+        QueueImageRefresh();
+    });
+    connect(_contrastSlider, &MySlider::doubleClicked, this, [this]() {
+        _contrastSlider->setValue(0);
+        QueueImageRefresh();
+    });
+
+    connect(_saturationSlider, &QSlider::valueChanged, this, [this]() {
+        _parameters.saturation = std::pow(2.0f, static_cast<float>(_saturationSlider->value()) / 33.0f);
+        QueueImageRefresh();
+    });
+    connect(_saturationSlider, &MySlider::doubleClicked, this, [this]() {
+        _saturationSlider->setValue(0);
         QueueImageRefresh();
     });
 }

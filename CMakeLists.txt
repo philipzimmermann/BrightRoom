@@ -44,9 +44,9 @@ add_subdirectory(submodules/thirdparty/LibRaw-cmake)
 set(Halide_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/halide/lib/cmake/Halide)
 find_package(Halide REQUIRED)
 
-add_subdirectory(src/lib)
+add_subdirectory(src/pipeline)
 
-add_subdirectory(src/app)
+add_subdirectory(src/gui)
 
 
 #CTest

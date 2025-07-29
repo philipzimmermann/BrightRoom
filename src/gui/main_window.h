@@ -7,6 +7,7 @@
 #include <QSlider>
 #include "libraw/libraw.h"
 #include "pipeline.h"
+#include "my_slider.h"
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -51,10 +52,12 @@ class MainWindow : public QMainWindow {
 
     bool _isDragging = false;
     QPoint _lastDragPos;
+    QTimer* _refreshTimer;
 
     QDockWidget* _adjustmentsDock;
-    QSlider* _exposureSlider;
-    QTimer* _refreshTimer;
+    MySlider* _exposureSlider;
+    MySlider* _contrastSlider;
+    MySlider* _saturationSlider;
 
     std::unique_ptr<LibRaw> _currentRaw;
     raw::Parameters _parameters;

@@ -165,7 +165,7 @@ auto HalidePipelineGen(LibRaw& rawProcessor, const Parameters& parameters) -> Rg
                                         wb_factors.raw_buffer(),                               // White balance factors
                                         parameters.exposure,                                   // Exposure compensation
                                         rgb_cam_buffer.raw_buffer(),  // Color space conversion matrix
-                                        1.5f,                         // Contrast factor
+                                        parameters.contrast,          // Contrast factor
                                         rgb8_buffer.raw_buffer());
     std::cout << "Generator error: " << error << std::endl;
     std::cout << "Generator time: " << std::chrono::duration_cast<Duration>(Clock::now() - step_start).count() << " ms"

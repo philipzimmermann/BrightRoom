@@ -1,6 +1,7 @@
 add_executable(${PROJECT_NAME}
     main_window.cpp
     main.cpp
+    my_slider.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} 
