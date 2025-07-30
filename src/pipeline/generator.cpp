@@ -63,12 +63,15 @@ class RawPipelineGenerator : public Halide::Generator<RawPipelineGenerator> {
         output = halide_gen::ToRgb8(contrast_adjusted, x, y, c);
 
         // Schedule
-        bool auto_schedule = false;
-        if (auto_schedule) {
+        constexpr bool kAutoSchedule = true;
+        if (kAutoSchedule) {
             // Let the autoscheduler handle it
             input.set_estimates({{0, 4000}, {0, 6000}});
             filters.set_estimate(0);
             black_level.set_estimate(0);
+            cblack.set_estimates({{0, 4}});
+            wb_factors.set_estimates({{0, 3}});
+            rgb_cam.set_estimates({{0, 3}, {0, 3}});
             white_input.set_estimate(0);
             exposure.set_estimate(3.0f);
             contrast_factor.set_estimate(1.5f);
