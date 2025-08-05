@@ -36,6 +36,11 @@ class MainWindow : public QMainWindow {
     void CreateAdjustmentsDock();
     void RefreshImage();
     void QueueImageRefresh();
+    void ConnectSlider(MySlider* slider, std::function<void(float)> valueChanged);
+    void HandleWheelEvent(QWheelEvent* event);
+    void HandleMousePressEvent(QMouseEvent* event);
+    void HandleMouseReleaseEvent(QMouseEvent* event);
+    void HandleMouseMoveEvent(QMouseEvent* event);
 
     QImage _fullSizeImage;
     QImage _scaledImage;

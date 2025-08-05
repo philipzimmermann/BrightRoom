@@ -52,77 +52,52 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), _imageLabel(new Q
     // QTimer::singleShot(0, this, [this]() { LoadRaw("/media/philip/Data SSD/photos/2025/06/22/QI9B7671.CR2"); });
 }
 
+auto CreateAdjustmentSlider(QWidget* parent, const QString& label, QVBoxLayout* layout) -> MySlider* {
+    auto* sliderLabel = new QLabel(label, parent);
+    auto* slider = new MySlider(Qt::Horizontal, parent);
+    slider->setRange(-100, 100);
+    slider->setValue(0);
+    slider->setTickPosition(QSlider::TicksBelow);
+    slider->setTickInterval(33);
+
+    layout->addWidget(sliderLabel);
+    layout->addWidget(slider);
+
+    return slider;
+}
+
 void MainWindow::CreateAdjustmentsDock() {
     _adjustmentsDock = new QDockWidget(tr("Adjustments"), this);
     _adjustmentsDock->setAllowedAreas(Qt::RightDockWidgetArea | Qt::LeftDockWidgetArea);
 
     auto* adjustmentsWidget = new QWidget(_adjustmentsDock);
     auto* layout = new QVBoxLayout(adjustmentsWidget);
-
-    // Set a minimum width for the adjustments widget
     adjustmentsWidget->setMinimumWidth(200);
 
-    // Add exposure slider
-    QLabel* exposureLabel = new QLabel(tr("Exposure"), adjustmentsWidget);
-    _exposureSlider = new MySlider(Qt::Horizontal, adjustmentsWidget);
-    _exposureSlider->setRange(-100, 100);  // Range from -1.0 to +1.0 (will be scaled)
-    _exposureSlider->setValue(0);          // Default to no exposure adjustment
-    _exposureSlider->setTickPosition(QSlider::TicksBelow);
-    _exposureSlider->setTickInterval(33);
+    // Create sliders
+    _exposureSlider = CreateAdjustmentSlider(adjustmentsWidget, tr("Exposure"), layout);
+    _contrastSlider = CreateAdjustmentSlider(adjustmentsWidget, tr("Contrast"), layout);
+    _saturationSlider = CreateAdjustmentSlider(adjustmentsWidget, tr("Saturation"), layout);
 
-    // Add contrast slider
-    QLabel* contrastLabel = new QLabel(tr("Contrast"), adjustmentsWidget);
-    _contrastSlider = new MySlider(Qt::Horizontal, adjustmentsWidget);
-    _contrastSlider->setRange(-100, 100);  // Range from -1.0 to +1.0 (will be scaled)
-    _contrastSlider->setValue(0);          // Default to no contrast adjustment
-    _contrastSlider->setTickPosition(QSlider::TicksBelow);
-    _contrastSlider->setTickInterval(33);
-
-    // Add saturation slider
-    QLabel* saturationLabel = new QLabel(tr("Saturation"), adjustmentsWidget);
-    _saturationSlider = new MySlider(Qt::Horizontal, adjustmentsWidget);
-    _saturationSlider->setRange(-100, 100);  // Range from -1.0 to +1.0 (will be scaled)
-    _saturationSlider->setValue(0);          // Default to no saturation adjustment
-    _saturationSlider->setTickPosition(QSlider::TicksBelow);
-    _saturationSlider->setTickInterval(33);
-
-    layout->addWidget(exposureLabel);
-    layout->addWidget(_exposureSlider);
-    layout->addWidget(contrastLabel);
-    layout->addWidget(_contrastSlider);
-    layout->addWidget(saturationLabel);
-    layout->addWidget(_saturationSlider);
     layout->addStretch();
-
     adjustmentsWidget->setLayout(layout);
     _adjustmentsDock->setWidget(adjustmentsWidget);
     addDockWidget(Qt::RightDockWidgetArea, _adjustmentsDock);
 
-    // Connect slider to parameter update and queue refresh
-    connect(_exposureSlider, &QSlider::valueChanged, this, [this]() {
-        _parameters.exposure = std::pow(2.0f, static_cast<float>(_exposureSlider->value()) / 33.0f);
-        QueueImageRefresh();
-    });
-    connect(_exposureSlider, &MySlider::doubleClicked, this, [this]() {
-        _exposureSlider->setValue(0);
-        QueueImageRefresh();
-    });
+    // Connect sliders
+    ConnectSlider(_exposureSlider, [this](float value) { _parameters.exposure = std::pow(2.0f, value / 33.0f); });
+    ConnectSlider(_contrastSlider, [this](float value) { _parameters.contrast = std::pow(1.5f, value / 33.0f); });
+    ConnectSlider(_saturationSlider, [this](float value) { _parameters.saturation = std::pow(2.0f, value / 33.0f); });
+}
 
-    connect(_contrastSlider, &QSlider::valueChanged, this, [this]() {
-        _parameters.contrast = std::pow(1.5f, static_cast<float>(_contrastSlider->value()) / 33.0f);
+// Helper method for connecting sliders
+void MainWindow::ConnectSlider(MySlider* slider, std::function<void(float)> valueChanged) {
+    connect(slider, &QSlider::valueChanged, this, [this, valueChanged, slider]() {
+        valueChanged(static_cast<float>(slider->value()));
         QueueImageRefresh();
     });
-    connect(_contrastSlider, &MySlider::doubleClicked, this, [this]() {
-        _contrastSlider->setValue(0);
-        QueueImageRefresh();
-    });
-
-    connect(_saturationSlider, &QSlider::valueChanged, this, [this]() {
-        _parameters.saturation = std::pow(2.0f, static_cast<float>(_saturationSlider->value()) / 33.0f);
-        QueueImageRefresh();
-    });
-    connect(_saturationSlider, &MySlider::doubleClicked, this, [this]() {
-        _saturationSlider->setValue(0);
+    connect(slider, &MySlider::doubleClicked, this, [this, slider]() {
+        slider->setValue(0);
         QueueImageRefresh();
     });
 }
@@ -301,80 +276,68 @@ void MainWindow::AdjustScrollBar(QScrollBar* scroll_bar, double zoom_change) {
 }
 
 bool MainWindow::eventFilter(QObject* obj, QEvent* event) {
-    if (obj == _scrollArea->viewport()) {
-        switch (event->type()) {
-            case QEvent::Wheel: {
-                if (!_fitToWindowAct->isChecked()) {  // Only zoom if not in fit-to-window mode
-                    auto* wheel_event = static_cast<QWheelEvent*>(event);
-                    if (wheel_event != nullptr) {
-                        // Get the mouse position relative to the image
-                        QPoint mouse_pos = wheel_event->position().toPoint();
-
-                        // Calculate zoom factor based on wheel delta
-                        // Typical mouse wheel step is 120 units
-                        double zoom_factor = (wheel_event->angleDelta().y() > 0) ? 1.25 : 0.8;
-                        double new_zoom = _zoom * zoom_factor;
-
-                        // Store the mouse position relative to the content before zooming
-                        double rel_x = (mouse_pos.x() + _scrollArea->horizontalScrollBar()->value()) /
-                                       (_zoom * _fullSizeImage.width());
-                        double rel_y = (mouse_pos.y() + _scrollArea->verticalScrollBar()->value()) /
-                                       (_zoom * _fullSizeImage.height());
-
-                        // Apply the zoom
-                        ScaleImage(new_zoom);
-
-                        // Calculate and set the new scroll position to keep the mouse position fixed
-                        int new_x = static_cast<int>(rel_x * _zoom * _fullSizeImage.width() - mouse_pos.x());
-                        int new_y = static_cast<int>(rel_y * _zoom * _fullSizeImage.height() - mouse_pos.y());
-
-                        _scrollArea->horizontalScrollBar()->setValue(new_x);
-                        _scrollArea->verticalScrollBar()->setValue(new_y);
-
-                        return true;
-                    }
-                }
-                break;
-            }
-            case QEvent::MouseButtonPress: {
-                auto* mouse_event = static_cast<QMouseEvent*>(event);
-                if ((mouse_event != nullptr) && mouse_event->button() == Qt::LeftButton) {
-                    _isDragging = true;
-                    _lastDragPos = mouse_event->pos();
-                    _scrollArea->viewport()->setCursor(Qt::ClosedHandCursor);
-                    return true;
-                }
-                break;
-            }
-            case QEvent::MouseButtonRelease: {
-                auto* mouse_event = static_cast<QMouseEvent*>(event);
-                if (mouse_event != nullptr && mouse_event->button() == Qt::LeftButton) {
-                    _isDragging = false;
-                    _scrollArea->viewport()->setCursor(Qt::ArrowCursor);
-                    return true;
-                }
-                break;
-            }
-            case QEvent::MouseMove: {
-                if (_isDragging) {
-                    auto* mouse_event = static_cast<QMouseEvent*>(event);
-                    if (mouse_event != nullptr) {
-                        QPoint delta = mouse_event->pos() - _lastDragPos;
-                        _scrollArea->horizontalScrollBar()->setValue(_scrollArea->horizontalScrollBar()->value() -
-                                                                     delta.x());
-                        _scrollArea->verticalScrollBar()->setValue(_scrollArea->verticalScrollBar()->value() -
-                                                                   delta.y());
-                        _lastDragPos = mouse_event->pos();
-                        return true;
-                    }
-                }
-                break;
-            }
-            default:
-                break;
-        }
+    if (obj != _scrollArea->viewport()) {
+        return QMainWindow::eventFilter(obj, event);
     }
-    return QMainWindow::eventFilter(obj, event);
+
+    switch (event->type()) {
+        case QEvent::Wheel:
+            HandleWheelEvent(static_cast<QWheelEvent*>(event));
+            return true;
+        case QEvent::MouseButtonPress:
+            HandleMousePressEvent(static_cast<QMouseEvent*>(event));
+            return true;
+        case QEvent::MouseButtonRelease:
+            HandleMouseReleaseEvent(static_cast<QMouseEvent*>(event));
+            return true;
+        case QEvent::MouseMove:
+            HandleMouseMoveEvent(static_cast<QMouseEvent*>(event));
+            return true;
+        default:
+            return QMainWindow::eventFilter(obj, event);
+    }
+}
+
+void MainWindow::HandleWheelEvent(QWheelEvent* event) {
+    QPoint mousePos = event->position().toPoint();
+    double zoomFactor = (event->angleDelta().y() > 0) ? 1.25 : 0.8;
+    double newZoom = _zoom * zoomFactor;
+
+    // Calculate relative position before zoom
+    double relX = (mousePos.x() + _scrollArea->horizontalScrollBar()->value()) / (_zoom * _fullSizeImage.width());
+    double relY = (mousePos.y() + _scrollArea->verticalScrollBar()->value()) / (_zoom * _fullSizeImage.height());
+
+    ScaleImage(newZoom);
+
+    // Maintain mouse position after zoom
+    int newX = static_cast<int>(relX * _zoom * _fullSizeImage.width() - mousePos.x());
+    int newY = static_cast<int>(relY * _zoom * _fullSizeImage.height() - mousePos.y());
+
+    _scrollArea->horizontalScrollBar()->setValue(newX);
+    _scrollArea->verticalScrollBar()->setValue(newY);
+}
+
+void MainWindow::HandleMousePressEvent(QMouseEvent* event) {
+    _isDragging = true;
+    _lastDragPos = event->pos();
+    _scrollArea->viewport()->setCursor(Qt::ClosedHandCursor);
+}
+
+void MainWindow::HandleMouseReleaseEvent(QMouseEvent* event) {
+
+    _isDragging = false;
+    _scrollArea->viewport()->setCursor(Qt::ArrowCursor);
+}
+
+void MainWindow::HandleMouseMoveEvent(QMouseEvent* event) {
+    if (!_isDragging || !event) {
+        return;
+    }
+
+    QPoint delta = event->pos() - _lastDragPos;
+    _scrollArea->horizontalScrollBar()->setValue(_scrollArea->horizontalScrollBar()->value() - delta.x());
+    _scrollArea->verticalScrollBar()->setValue(_scrollArea->verticalScrollBar()->value() - delta.y());
+    _lastDragPos = event->pos();
 }
 
 void MainWindow::RefreshImage() {
