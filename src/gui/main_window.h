@@ -1,5 +1,6 @@
 #pragma once
 
+#include <qboxlayout.h>
 #include <QDockWidget>
 #include <QLabel>
 #include <QMainWindow>
@@ -29,18 +30,18 @@ class MainWindow : public QMainWindow {
 
    private:
     void CreateActions();
-    void CreateMenus();
     void SetImage(const QImage& new_image, bool fit_to_window);
     void ScaleImage(double requested_zoom);
     void AdjustScrollBar(QScrollBar* scroll_bar, double zoom_change);
     void CreateAdjustmentsDock();
     void RefreshImage();
     void QueueImageRefresh();
-    void ConnectSlider(MySlider* slider, std::function<void(float)> valueChanged);
+    void ConnectSlider(MySlider* slider, std::function<void(float)> value_changed);
     void HandleWheelEvent(QWheelEvent* event);
     void HandleMousePressEvent(QMouseEvent* event);
     void HandleMouseReleaseEvent(QMouseEvent* event);
     void HandleMouseMoveEvent(QMouseEvent* event);
+    MySlider* CreateAdjustmentSlider(QWidget* parent, const QString& label, QVBoxLayout* layout);
 
     QImage _fullSizeImage;
     QImage _scaledImage;
@@ -66,4 +67,10 @@ class MainWindow : public QMainWindow {
     std::unique_ptr<LibRaw> _currentRaw;
     raw::Parameters _parameters{};
     raw::Pipeline _pipeline;
+
+    // Add these constants
+    static constexpr double ZOOM_IN_FACTOR = 1.25;
+    static constexpr double ZOOM_OUT_FACTOR = 0.8;
+    static constexpr int SLIDER_TICK_INTERVAL = 33;
+    static constexpr int REFRESH_DELAY_MS = 150;
 };

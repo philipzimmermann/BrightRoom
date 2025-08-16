@@ -42,7 +42,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), _imageLabel(new Q
     // Initialize the refresh timer
     _refreshTimer = new QTimer(this);
     _refreshTimer->setSingleShot(true);
-    _refreshTimer->setInterval(150);  // 150ms debounce delay
+    _refreshTimer->setInterval(REFRESH_DELAY_MS);  // 150ms debounce delay
     connect(_refreshTimer, &QTimer::timeout, this, &MainWindow::RefreshImage);
 
     CreateAdjustmentsDock();
@@ -52,13 +52,14 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), _imageLabel(new Q
     // QTimer::singleShot(0, this, [this]() { LoadRaw("/media/philip/Data SSD/photos/2025/06/22/QI9B7671.CR2"); });
 }
 
-auto CreateAdjustmentSlider(QWidget* parent, const QString& label, QVBoxLayout* layout) -> MySlider* {
+auto MainWindow::CreateAdjustmentSlider(QWidget* parent, const QString& label, QVBoxLayout* layout) -> MySlider* {
     auto* sliderLabel = new QLabel(label, parent);
     auto* slider = new MySlider(Qt::Horizontal, parent);
-    slider->setRange(-100, 100);
+    constexpr int kSliderRange = 100;
+    slider->setRange(-kSliderRange, kSliderRange);
     slider->setValue(0);
     slider->setTickPosition(QSlider::TicksBelow);
-    slider->setTickInterval(33);
+    slider->setTickInterval(SLIDER_TICK_INTERVAL);
 
     layout->addWidget(sliderLabel);
     layout->addWidget(slider);
@@ -85,9 +86,12 @@ void MainWindow::CreateAdjustmentsDock() {
     addDockWidget(Qt::RightDockWidgetArea, _adjustmentsDock);
 
     // Connect sliders
-    ConnectSlider(_exposureSlider, [this](float value) { _parameters.exposure = std::pow(2.0f, value / 33.0f); });
-    ConnectSlider(_contrastSlider, [this](float value) { _parameters.contrast = std::pow(1.5f, value / 33.0f); });
-    ConnectSlider(_saturationSlider, [this](float value) { _parameters.saturation = std::pow(2.0f, value / 33.0f); });
+    ConnectSlider(_exposureSlider,
+                  [this](float value) { _parameters.exposure = std::pow(2.0f, value / SLIDER_TICK_INTERVAL); });
+    ConnectSlider(_contrastSlider,
+                  [this](float value) { _parameters.contrast = std::pow(1.5f, value / SLIDER_TICK_INTERVAL); });
+    ConnectSlider(_saturationSlider,
+                  [this](float value) { _parameters.saturation = std::pow(2.0f, value / SLIDER_TICK_INTERVAL); });
 }
 
 // Helper method for connecting sliders
@@ -167,29 +171,7 @@ void MainWindow::SetImage(const QImage& new_image, bool fit_to_window) {
     }
 }
 
-static void initializeImageFileDialog(QFileDialog& dialog, QFileDialog::AcceptMode acceptMode) {
-    static bool firstDialog = true;
-
-    if (firstDialog) {
-        firstDialog = false;
-        const QStringList picturesLocations = QStandardPaths::standardLocations(QStandardPaths::PicturesLocation);
-        dialog.setDirectory(picturesLocations.isEmpty() ? QDir::currentPath() : picturesLocations.last());
-    }
-
-    QStringList mimeTypeFilters;
-    const QByteArrayList supportedMimeTypes =
-        acceptMode == QFileDialog::AcceptOpen ? QImageReader::supportedMimeTypes() : QImageWriter::supportedMimeTypes();
-    for (const QByteArray& mimeTypeName : supportedMimeTypes)
-        mimeTypeFilters.append(mimeTypeName);
-    mimeTypeFilters.sort();
-    dialog.setMimeTypeFilters(mimeTypeFilters);
-    dialog.selectMimeTypeFilter("image/jpeg");
-    dialog.setAcceptMode(acceptMode);
-    if (acceptMode == QFileDialog::AcceptSave)
-        dialog.setDefaultSuffix("jpg");
-}
-
-static void initializeLoadRawFileDialog(QFileDialog& dialog) {
+static void InitializeLoadRawFileDialog(QFileDialog& dialog) {
     QStringList mimeTypeFilters;
     dialog.setNameFilter(dialog.tr("Raw Images (*.ORF *.RAW *.DNG *.NEF *.CR2)"));
     dialog.setAcceptMode(QFileDialog::AcceptOpen);
@@ -197,17 +179,17 @@ static void initializeLoadRawFileDialog(QFileDialog& dialog) {
 
 void MainWindow::Open() {
     QFileDialog dialog(this, tr("Open RAW File"));
-    initializeLoadRawFileDialog(dialog);
+    InitializeLoadRawFileDialog(dialog);
 
     while (dialog.exec() == QDialog::Accepted && !LoadRaw(dialog.selectedFiles().constFirst())) {}
 }
 
 void MainWindow::ZoomIn() {
-    ScaleImage(_zoom * 1.25);
+    ScaleImage(_zoom * ZOOM_IN_FACTOR);
 }
 
 void MainWindow::ZoomOut() {
-    ScaleImage(_zoom * 0.8);
+    ScaleImage(_zoom * ZOOM_OUT_FACTOR);
 }
 
 void MainWindow::NormalSize() {
@@ -239,7 +221,7 @@ void MainWindow::CreateActions() {
     QAction* exitAct = fileMenu->addAction(tr("E&xit"), this, &QWidget::close);
     exitAct->setShortcut(tr("Ctrl+Q"));
 
-    QMenu* editMenu = menuBar()->addMenu(tr("&Edit"));
+    // QMenu* editMenu = menuBar()->addMenu(tr("&Edit"));
 
     QMenu* viewMenu = menuBar()->addMenu(tr("&View"));
 
@@ -300,7 +282,7 @@ bool MainWindow::eventFilter(QObject* obj, QEvent* event) {
 
 void MainWindow::HandleWheelEvent(QWheelEvent* event) {
     QPoint mousePos = event->position().toPoint();
-    double zoomFactor = (event->angleDelta().y() > 0) ? 1.25 : 0.8;
+    double zoomFactor = (event->angleDelta().y() > 0) ? ZOOM_IN_FACTOR : ZOOM_OUT_FACTOR;
     double newZoom = _zoom * zoomFactor;
 
     // Calculate relative position before zoom
