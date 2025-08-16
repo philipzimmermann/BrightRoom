@@ -33,7 +33,7 @@ class MainWindow : public QMainWindow {
     void SetImage(const QImage& new_image, bool fit_to_window);
     void ScaleImage(double requested_zoom);
     void AdjustScrollBar(QScrollBar* scroll_bar, double zoom_change);
-    void CreateAdjustmentsDock();
+    void CreateEditDock();
     void RefreshImage();
     void QueueImageRefresh();
     void ConnectSlider(MySlider* slider, std::function<void(float)> value_changed);
@@ -59,7 +59,7 @@ class MainWindow : public QMainWindow {
     QPoint _lastDragPos;
     QTimer* _refreshTimer;
 
-    QDockWidget* _adjustmentsDock;
+    QDockWidget* _editDock;
     MySlider* _exposureSlider;
     MySlider* _contrastSlider;
     MySlider* _saturationSlider;

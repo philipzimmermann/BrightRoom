@@ -24,6 +24,8 @@
 #include <QStatusBar>
 #include <QTimer>
 #include <QVBoxLayout>
+#include <QPushButton>
+#include <QStackedWidget>
 
 #include "Tracy.hpp"
 
@@ -45,7 +47,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), _imageLabel(new Q
     _refreshTimer->setInterval(REFRESH_DELAY_MS);  // 150ms debounce delay
     connect(_refreshTimer, &QTimer::timeout, this, &MainWindow::RefreshImage);
 
-    CreateAdjustmentsDock();
+    CreateEditDock();
     CreateActions();
 
     resize(QGuiApplication::primaryScreen()->availableSize() * 3 / 5);
@@ -67,25 +69,77 @@ auto MainWindow::CreateAdjustmentSlider(QWidget* parent, const QString& label, Q
     return slider;
 }
 
-void MainWindow::CreateAdjustmentsDock() {
-    _adjustmentsDock = new QDockWidget(tr("Adjustments"), this);
-    _adjustmentsDock->setAllowedAreas(Qt::RightDockWidgetArea | Qt::LeftDockWidgetArea);
+void MainWindow::CreateEditDock() {
+    // Rename dock
+    _editDock = new QDockWidget(tr("Edit"), this);
+    _editDock->setAllowedAreas(Qt::RightDockWidgetArea | Qt::LeftDockWidgetArea);
 
-    auto* adjustmentsWidget = new QWidget(_adjustmentsDock);
-    auto* layout = new QVBoxLayout(adjustmentsWidget);
-    adjustmentsWidget->setMinimumWidth(200);
+    auto* dockWidget = new QWidget(_editDock);
+    auto* dockLayout = new QVBoxLayout(dockWidget);
+    dockWidget->setMinimumWidth(200);
 
-    // Create sliders
-    _exposureSlider = CreateAdjustmentSlider(adjustmentsWidget, tr("Exposure"), layout);
-    _contrastSlider = CreateAdjustmentSlider(adjustmentsWidget, tr("Contrast"), layout);
-    _saturationSlider = CreateAdjustmentSlider(adjustmentsWidget, tr("Saturation"), layout);
+ 
 
-    layout->addStretch();
-    adjustmentsWidget->setLayout(layout);
-    _adjustmentsDock->setWidget(adjustmentsWidget);
-    addDockWidget(Qt::RightDockWidgetArea, _adjustmentsDock);
+    // Button row for layout switching
+    auto* buttonLayout = new QHBoxLayout();
+    auto* adjustmentsBtn = new QPushButton(tr("Adjustments"), dockWidget);
+    auto* metadataBtn    = new QPushButton(tr("Metadata"), dockWidget);
+    auto* cropBtn        = new QPushButton(tr("Crop"), dockWidget);
 
-    // Connect sliders
+    buttonLayout->addWidget(adjustmentsBtn);
+    buttonLayout->addWidget(cropBtn);
+    buttonLayout->addWidget(metadataBtn);
+    
+
+    dockLayout->addLayout(buttonLayout);
+
+    // Stacked widget to hold different layouts
+    auto* stackedWidget = new QStackedWidget(dockWidget);
+
+    // --- Adjustments layout ---
+    auto* adjustmentsWidget = new QWidget(stackedWidget);
+    auto* adjustmentsLayout = new QVBoxLayout(adjustmentsWidget);
+
+    _exposureSlider   = CreateAdjustmentSlider(adjustmentsWidget, tr("Exposure"), adjustmentsLayout);
+    _contrastSlider   = CreateAdjustmentSlider(adjustmentsWidget, tr("Contrast"), adjustmentsLayout);
+    _saturationSlider = CreateAdjustmentSlider(adjustmentsWidget, tr("Saturation"), adjustmentsLayout);
+
+    adjustmentsLayout->addStretch();
+    adjustmentsWidget->setLayout(adjustmentsLayout);
+    stackedWidget->addWidget(adjustmentsWidget);
+
+    // --- Metadata layout (placeholder) ---
+    auto* metadataWidget = new QWidget(stackedWidget);
+    auto* metadataLayout = new QVBoxLayout(metadataWidget);
+    metadataLayout->addWidget(new QLabel(tr("Metadata content goes here"), metadataWidget));
+    metadataWidget->setLayout(metadataLayout);
+    stackedWidget->addWidget(metadataWidget);
+
+    // --- Crop layout (placeholder) ---
+    auto* cropWidget = new QWidget(stackedWidget);
+    auto* cropLayout = new QVBoxLayout(cropWidget);
+    cropLayout->addWidget(new QLabel(tr("Crop tools go here"), cropWidget));
+    cropWidget->setLayout(cropLayout);
+    stackedWidget->addWidget(cropWidget);
+
+    // Add stacked widget to dock layout
+    dockLayout->addWidget(stackedWidget);
+    dockWidget->setLayout(dockLayout);
+    _editDock->setWidget(dockWidget);
+    addDockWidget(Qt::RightDockWidgetArea, _editDock);
+
+    // Button connections
+    connect(adjustmentsBtn, &QPushButton::clicked, [stackedWidget]() {
+        stackedWidget->setCurrentIndex(0);
+    });
+    connect(metadataBtn, &QPushButton::clicked, [stackedWidget]() {
+        stackedWidget->setCurrentIndex(1);
+    });
+    connect(cropBtn, &QPushButton::clicked, [stackedWidget]() {
+        stackedWidget->setCurrentIndex(2);
+    });
+
+    // Connect sliders (same as before)
     ConnectSlider(_exposureSlider,
                   [this](float value) { _parameters.exposure = std::pow(2.0f, value / SLIDER_TICK_INTERVAL); });
     ConnectSlider(_contrastSlider,
@@ -93,6 +147,7 @@ void MainWindow::CreateAdjustmentsDock() {
     ConnectSlider(_saturationSlider,
                   [this](float value) { _parameters.saturation = std::pow(2.0f, value / SLIDER_TICK_INTERVAL); });
 }
+
 
 // Helper method for connecting sliders
 void MainWindow::ConnectSlider(MySlider* slider, std::function<void(float)> valueChanged) {
