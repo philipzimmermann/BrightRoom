@@ -107,6 +107,7 @@ auto HalideRawPipeline::Process(LibRaw& raw_data, const Parameters& parameters) 
                                        parameters.exposure * 3.0f,       // Exposure compensation
                                        rgb_cam_buffer.raw_buffer(),      // Color space conversion matrix
                                        parameters.contrast * 1.5f,       // Contrast factor
+                                       parameters.saturation * 1.0f,     // Saturation factor
                                        _rgb8_buffer.raw_buffer());
     if (error != 0) {
         std::cout << "Process error: " << error << "\n";

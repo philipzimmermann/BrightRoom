@@ -154,6 +154,35 @@ inline auto ContrastAdjustment(Halide::Func input, Halide::Var x, Halide::Var y,
     return contrast_adjusted;
 }
 
+inline auto SaturationAdjustment(Halide::Func input, Halide::Var x, Halide::Var y, Halide::Var c,
+                                 Expr saturation_factor) -> Halide::Func {
+    Halide::Func saturation_adjusted("saturation_adjusted");
+
+    // TODO: This is just a hacky saturation adjustment, we should use a better method
+    Halide::Expr r = input(x, y, 0);
+    Halide::Expr g = input(x, y, 1);
+    Halide::Expr b = input(x, y, 2);
+
+    // Find min and max of RGB
+    Halide::Expr max_rgb = Halide::max(r, g, b);
+    Halide::Expr min_rgb = Halide::min(r, g, b);
+
+    // Calculate saturation adjustment
+    Halide::Expr delta = max_rgb - min_rgb;
+    Halide::Expr sat = Halide::select(max_rgb != 0.0f, delta / max_rgb, 0.0f);
+    Halide::Expr new_sat = Halide::clamp(sat * saturation_factor, 0.0f, 1.0f);
+
+    // Apply saturation adjustment while preserving luminance
+    Halide::Expr lum = 0.2126f * r + 0.7152f * g + 0.0722f * b;
+
+    saturation_adjusted(x, y, c) =
+        Halide::select(c == 0, Halide::clamp(lum + (r - lum) * new_sat / Halide::max(sat, 0.001f), 0.0f, 1.0f), c == 1,
+                       Halide::clamp(lum + (g - lum) * new_sat / Halide::max(sat, 0.001f), 0.0f, 1.0f),
+                       Halide::clamp(lum + (b - lum) * new_sat / Halide::max(sat, 0.001f), 0.0f, 1.0f));
+
+    return saturation_adjusted;
+}
+
 inline auto ToRgb8(Halide::Func input, Halide::Var x, Halide::Var y, Halide::Var c) -> Halide::Func {
     Halide::Func rgb8("rgb8");
     rgb8(x, y, c) = Halide::cast<uint8_t>(Halide::clamp(Halide::round(input(x, y, c) * 255.0f), 0.0f, 255.0f));

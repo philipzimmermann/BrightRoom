@@ -369,6 +369,7 @@ void MainWindow::HandleMouseMoveEvent(QMouseEvent* event) {
 }
 
 void MainWindow::RefreshImage() {
+    // TODO: This should run in a separate worker thread
     if (!_currentRaw) {
         return;
     }

@@ -55,11 +55,12 @@ HALIDE_REGISTER_GENERATOR(PreprocessRawGenerator, preprocess_raw_generator)
 class ProcessRawGenerator : public Halide::Generator<ProcessRawGenerator> {
    public:
     // Inputs
-    Input<Buffer<float, 3>> input{"input"};            // Already demosaiced input
-    Input<Buffer<float, 1>> wb_factors{"wb_factors"};  // White balance factors
-    Input<float> exposure{"exposure"};                 // Exposure compensation
-    Input<Buffer<float, 2>> rgb_cam{"rgb_cam"};        // Color space conversion matrix
-    Input<float> contrast_factor{"contrast_factor"};   // Contrast adjustment factor
+    Input<Buffer<float, 3>> input{"input"};
+    Input<Buffer<float, 1>> wb_factors{"wb_factors"};
+    Input<float> exposure{"exposure"};
+    Input<Buffer<float, 2>> rgb_cam{"rgb_cam"};
+    Input<float> contrast_factor{"contrast_factor"};
+    Input<float> saturation_factor{"saturation_factor"};
 
     // Output
     Output<Buffer<uint8_t, 3>> output{"output"};  // Final RGB8 output
@@ -93,8 +94,11 @@ class ProcessRawGenerator : public Halide::Generator<ProcessRawGenerator> {
         // Contrast adjustment
         Func contrast_adjusted = brightroom::ContrastAdjustment(gamma_corrected, x, y, c, contrast_factor);
 
-        // Convert to RGB8
-        output = brightroom::ToRgb8(contrast_adjusted, x, y, c);
+        // Add saturation adjustment
+        Func saturation_adjusted = brightroom::SaturationAdjustment(contrast_adjusted, x, y, c, saturation_factor);
+
+        // Convert to RGB8 (modify to use saturation_adjusted instead of contrast_adjusted)
+        output = brightroom::ToRgb8(saturation_adjusted, x, y, c);
 
         // For interleaved output
         input.dim(0).set_stride(3);
@@ -117,10 +121,12 @@ class ProcessRawGenerator : public Halide::Generator<ProcessRawGenerator> {
             rgb_cam.set_estimates({{0, 3}, {0, 3}});
             exposure.set_estimate(3.0f);
             contrast_factor.set_estimate(1.5f);
+            saturation_factor.set_estimate(1.0f);
             output.set_estimates({{0, 4000}, {0, 6000}, {0, 3}});
         } else {
             // Manual schedule similar to your original pipeline
             output.split(y, yo, yi, 32).parallel(yo).vectorize(x, 16);
+            saturation_adjusted.store_at(output, yo).compute_at(output, yi).vectorize(x, 8);
             contrast_adjusted.store_at(output, yo).compute_at(output, yi).vectorize(x, 8);
             gamma_corrected.store_at(output, yo).compute_at(output, yi).vectorize(x, 8);
             srgb.store_at(output, yo).compute_at(output, yi).vectorize(x, 8);
