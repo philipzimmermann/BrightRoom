@@ -44,7 +44,7 @@ MainWindow::MainWindow(QWidget* parent, std::unique_ptr<brightroom::IRawPipeline
     // Initialize the refresh timer
     _refreshTimer = new QTimer(this);
     _refreshTimer->setSingleShot(true);
-    _refreshTimer->setInterval(kRefreshDelayMs);  // 150ms debounce delay
+    _refreshTimer->setInterval(kDebounceDelayMs);
     connect(_refreshTimer, &QTimer::timeout, this, &MainWindow::RefreshImage);
 
     CreateEditDock();
@@ -372,6 +372,9 @@ void MainWindow::RefreshImage() {
     if (!_currentRaw) {
         return;
     }
+
+    // std::cout << "Sleeping 1000ms\n";
+    // std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
     std::cout << "Generating image with params: " << _parameters.ToString() << std::endl;
     auto processed_image = _pipeline->Process(*_currentRaw, _parameters);

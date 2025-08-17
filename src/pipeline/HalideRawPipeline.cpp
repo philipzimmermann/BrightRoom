@@ -9,10 +9,10 @@
 #include "types.h"
 
 namespace brightroom {
+using Clock = std::chrono::steady_clock;
+using Duration = std::chrono::milliseconds;
 
 void HalideRawPipeline::Preprocess(LibRaw& raw_data) {
-    using Clock = std::chrono::steady_clock;
-    using Duration = std::chrono::milliseconds;
     auto total_start = Clock::now();
     auto step_start = Clock::now();
 
@@ -44,29 +44,39 @@ void HalideRawPipeline::Preprocess(LibRaw& raw_data) {
         }
     }
 
-    Halide::Runtime::Buffer<float> demosaiced_buffer(raw_data.imgdata.sizes.raw_width,
-                                                     raw_data.imgdata.sizes.raw_height, 3);
-    std::cout << "Running generator..." << std::endl;
+    auto demosaiced_buffer = Halide::Runtime::Buffer<float>::make_interleaved(raw_data.imgdata.sizes.raw_width,
+                                                                              raw_data.imgdata.sizes.raw_height, 3);
+    std::cout << "Running preprocess..." << "\n";
+    step_start = Clock::now();
 
-    // Call the generator with all parameters
+    // Call preprocess with all parameters
     auto error = preprocess_raw_generator(input_buffer.raw_buffer(),                         // Raw Bayer input
                                           static_cast<int>(raw_data.imgdata.idata.filters),  // Bayer pattern
                                           static_cast<int>(raw_data.imgdata.color.black),    // Global black level
                                           cblack_buffer.raw_buffer(),                        // Per-channel black levels
                                           static_cast<int>(raw_data.imgdata.color.maximum),  // White level
                                           demosaiced_buffer.raw_buffer());
-    std::cout << "Generator error: " << error << std::endl;
-    std::cout << "Generator time: " << std::chrono::duration_cast<Duration>(Clock::now() - step_start).count() << " ms"
-              << std::endl;
+    if (error != 0) {
+        std::cout << "Preprocess error: " << error << "\n";
+    }
+    std::cout << "Preprocess time: " << std::chrono::duration_cast<Duration>(Clock::now() - step_start).count() << " ms"
+              << "\n";
 
-    std::cout << "Total pipeline time: " << std::chrono::duration_cast<Duration>(Clock::now() - total_start).count()
-              << " ms" << std::endl;
     _demosaiced_buffer = std::move(demosaiced_buffer);
+
+    step_start = Clock::now();
+    // Allocate vector for final image output
+    _rgb8_vector.resize(raw_data.imgdata.sizes.raw_width * raw_data.imgdata.sizes.raw_height * 3);
+    // Wrap the vector as a interleaved Halide buffer
+    _rgb8_buffer = Halide::Runtime::Buffer<uint8_t>::make_interleaved(
+        _rgb8_vector.data(), raw_data.imgdata.sizes.raw_width, raw_data.imgdata.sizes.raw_height, 3);
+    std::cout << "RGB8 vector time: " << std::chrono::duration_cast<Duration>(Clock::now() - step_start).count()
+              << " ms" << "\n";
+    std::cout << "Total Preprocess time: " << std::chrono::duration_cast<Duration>(Clock::now() - total_start).count()
+              << " ms" << "\n";
 }
 
 auto HalideRawPipeline::Process(LibRaw& raw_data, const Parameters& parameters) -> RgbImage {
-    using Clock = std::chrono::steady_clock;
-    using Duration = std::chrono::milliseconds;
     auto total_start = Clock::now();
     auto step_start = Clock::now();
 
@@ -88,11 +98,8 @@ auto HalideRawPipeline::Process(LibRaw& raw_data, const Parameters& parameters) 
         }
     }
 
-    Halide::Runtime::Buffer<uint8_t> rgb8_buffer(raw_data.imgdata.sizes.raw_width, raw_data.imgdata.sizes.raw_height,
-                                                 3);
-    // auto rgb8_buffer = Halide::Buffer<uint8_t>::make_interleaved(rawProcessor.imgdata.sizes.raw_width,
-    //                                                              rawProcessor.imgdata.sizes.raw_height, 3);
-    std::cout << "Running generator..." << std::endl;
+    std::cout << "Running process..." << "\n";
+    step_start = Clock::now();
 
     // Call the generator with all parameters
     auto error = process_raw_generator(_demosaiced_buffer.raw_buffer(),  // Raw Bayer input
@@ -100,29 +107,16 @@ auto HalideRawPipeline::Process(LibRaw& raw_data, const Parameters& parameters) 
                                        parameters.exposure * 3.0f,       // Exposure compensation
                                        rgb_cam_buffer.raw_buffer(),      // Color space conversion matrix
                                        parameters.contrast * 1.5f,       // Contrast factor
-                                       rgb8_buffer.raw_buffer());
-    std::cout << "Generator error: " << error << std::endl;
-    std::cout << "Generator time: " << std::chrono::duration_cast<Duration>(Clock::now() - step_start).count() << " ms"
-              << std::endl;
-
-    // Copy the result to a vector
-    step_start = Clock::now();
-    std::vector<uint8_t> rgb8_vector(raw_data.imgdata.sizes.raw_width * raw_data.imgdata.sizes.raw_height * 3);
-
-    for (int y = 0; y < raw_data.imgdata.sizes.raw_height; y++) {
-        for (int x = 0; x < raw_data.imgdata.sizes.raw_width; x++) {
-            for (int c = 0; c < 3; c++) {
-                rgb8_vector[y * raw_data.imgdata.sizes.raw_width * 3 + x * 3 + c] = rgb8_buffer(x, y, c);
-            }
-        }
+                                       _rgb8_buffer.raw_buffer());
+    if (error != 0) {
+        std::cout << "Process error: " << error << "\n";
     }
-    // memcpy(rgb8_vector.data(), rgb8_buffer.data(), rgb8_vector.size() * sizeof(uint8_t));
-    std::cout << "Copy time: " << std::chrono::duration_cast<Duration>(Clock::now() - step_start).count() << " ms"
-              << std::endl;
+    std::cout << "Process time: " << std::chrono::duration_cast<Duration>(Clock::now() - step_start).count() << " ms"
+              << "\n";
 
-    std::cout << "Total pipeline time: " << std::chrono::duration_cast<Duration>(Clock::now() - total_start).count()
-              << " ms" << std::endl;
+    std::cout << "Total process time: " << std::chrono::duration_cast<Duration>(Clock::now() - total_start).count()
+              << " ms" << "\n";
 
-    return {rgb8_vector, raw_data.imgdata.sizes.raw_width, raw_data.imgdata.sizes.raw_height};
+    return {_rgb8_vector, raw_data.imgdata.sizes.raw_width, raw_data.imgdata.sizes.raw_height};
 }
 }  // namespace brightroom

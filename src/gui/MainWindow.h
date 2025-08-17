@@ -72,5 +72,5 @@ class MainWindow : public QMainWindow {
     static constexpr double kZoomInFactor = 1.25;
     static constexpr double kZoomOutFactor = 0.8;
     static constexpr int kSliderTickInterval = 33;
-    static constexpr int kRefreshDelayMs = 150;
+    static constexpr int kDebounceDelayMs = 100;
 };

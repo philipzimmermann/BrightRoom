@@ -35,5 +35,5 @@ out
 .vscode
 .cache
 compile_commands.json
-halide
+thirdparty/halide
 build
