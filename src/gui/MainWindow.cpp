@@ -1,8 +1,7 @@
-#include "main_window.h"
+#include "MainWindow.h"
 #include <qimage.h>
 #include <iostream>
-#include "pipeline.h"
-#include "raw_loader.h"
+#include "RawLoader.h"
 
 #include <QApplication>
 #include <QClipboard>
@@ -17,19 +16,20 @@
 #include <QMimeData>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QPushButton>
 #include <QScreen>
 #include <QScrollArea>
 #include <QScrollBar>
+#include <QStackedWidget>
 #include <QStandardPaths>
 #include <QStatusBar>
 #include <QTimer>
 #include <QVBoxLayout>
-#include <QPushButton>
-#include <QStackedWidget>
 
 #include "Tracy.hpp"
 
-MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), _imageLabel(new QLabel), _scrollArea(new QScrollArea) {
+MainWindow::MainWindow(QWidget* parent, std::unique_ptr<brightroom::IRawPipeline> pipeline)
+    : QMainWindow(parent), _imageLabel(new QLabel), _scrollArea(new QScrollArea), _pipeline(std::move(pipeline)) {
     setWindowTitle("BrightRoom");
     _imageLabel->setBackgroundRole(QPalette::Base);
     _imageLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Ignored);
@@ -44,7 +44,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), _imageLabel(new Q
     // Initialize the refresh timer
     _refreshTimer = new QTimer(this);
     _refreshTimer->setSingleShot(true);
-    _refreshTimer->setInterval(REFRESH_DELAY_MS);  // 150ms debounce delay
+    _refreshTimer->setInterval(kRefreshDelayMs);  // 150ms debounce delay
     connect(_refreshTimer, &QTimer::timeout, this, &MainWindow::RefreshImage);
 
     CreateEditDock();
@@ -55,15 +55,15 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), _imageLabel(new Q
 }
 
 auto MainWindow::CreateAdjustmentSlider(QWidget* parent, const QString& label, QVBoxLayout* layout) -> MySlider* {
-    auto* sliderLabel = new QLabel(label, parent);
+    auto* slider_label = new QLabel(label, parent);
     auto* slider = new MySlider(Qt::Horizontal, parent);
     constexpr int kSliderRange = 100;
     slider->setRange(-kSliderRange, kSliderRange);
     slider->setValue(0);
     slider->setTickPosition(QSlider::TicksBelow);
-    slider->setTickInterval(SLIDER_TICK_INTERVAL);
+    slider->setTickInterval(kSliderTickInterval);
 
-    layout->addWidget(sliderLabel);
+    layout->addWidget(slider_label);
     layout->addWidget(slider);
 
     return slider;
@@ -78,18 +78,15 @@ void MainWindow::CreateEditDock() {
     auto* dockLayout = new QVBoxLayout(dockWidget);
     dockWidget->setMinimumWidth(200);
 
- 
-
     // Button row for layout switching
     auto* buttonLayout = new QHBoxLayout();
     auto* adjustmentsBtn = new QPushButton(tr("Adjustments"), dockWidget);
-    auto* metadataBtn    = new QPushButton(tr("Metadata"), dockWidget);
-    auto* cropBtn        = new QPushButton(tr("Crop"), dockWidget);
+    auto* metadataBtn = new QPushButton(tr("Metadata"), dockWidget);
+    auto* cropBtn = new QPushButton(tr("Crop"), dockWidget);
 
     buttonLayout->addWidget(adjustmentsBtn);
     buttonLayout->addWidget(cropBtn);
     buttonLayout->addWidget(metadataBtn);
-    
 
     dockLayout->addLayout(buttonLayout);
 
@@ -100,8 +97,8 @@ void MainWindow::CreateEditDock() {
     auto* adjustmentsWidget = new QWidget(stackedWidget);
     auto* adjustmentsLayout = new QVBoxLayout(adjustmentsWidget);
 
-    _exposureSlider   = CreateAdjustmentSlider(adjustmentsWidget, tr("Exposure"), adjustmentsLayout);
-    _contrastSlider   = CreateAdjustmentSlider(adjustmentsWidget, tr("Contrast"), adjustmentsLayout);
+    _exposureSlider = CreateAdjustmentSlider(adjustmentsWidget, tr("Exposure"), adjustmentsLayout);
+    _contrastSlider = CreateAdjustmentSlider(adjustmentsWidget, tr("Contrast"), adjustmentsLayout);
     _saturationSlider = CreateAdjustmentSlider(adjustmentsWidget, tr("Saturation"), adjustmentsLayout);
 
     adjustmentsLayout->addStretch();
@@ -129,25 +126,18 @@ void MainWindow::CreateEditDock() {
     addDockWidget(Qt::RightDockWidgetArea, _editDock);
 
     // Button connections
-    connect(adjustmentsBtn, &QPushButton::clicked, [stackedWidget]() {
-        stackedWidget->setCurrentIndex(0);
-    });
-    connect(metadataBtn, &QPushButton::clicked, [stackedWidget]() {
-        stackedWidget->setCurrentIndex(1);
-    });
-    connect(cropBtn, &QPushButton::clicked, [stackedWidget]() {
-        stackedWidget->setCurrentIndex(2);
-    });
+    connect(adjustmentsBtn, &QPushButton::clicked, [stackedWidget]() { stackedWidget->setCurrentIndex(0); });
+    connect(metadataBtn, &QPushButton::clicked, [stackedWidget]() { stackedWidget->setCurrentIndex(1); });
+    connect(cropBtn, &QPushButton::clicked, [stackedWidget]() { stackedWidget->setCurrentIndex(2); });
 
     // Connect sliders (same as before)
     ConnectSlider(_exposureSlider,
-                  [this](float value) { _parameters.exposure = std::pow(2.0f, value / SLIDER_TICK_INTERVAL); });
+                  [this](float value) { _parameters.exposure = std::pow(2.0f, value / kSliderTickInterval); });
     ConnectSlider(_contrastSlider,
-                  [this](float value) { _parameters.contrast = std::pow(1.5f, value / SLIDER_TICK_INTERVAL); });
+                  [this](float value) { _parameters.contrast = std::pow(1.5f, value / kSliderTickInterval); });
     ConnectSlider(_saturationSlider,
-                  [this](float value) { _parameters.saturation = std::pow(2.0f, value / SLIDER_TICK_INTERVAL); });
+                  [this](float value) { _parameters.saturation = std::pow(2.0f, value / kSliderTickInterval); });
 }
-
 
 // Helper method for connecting sliders
 void MainWindow::ConnectSlider(MySlider* slider, std::function<void(float)> valueChanged) {
@@ -188,10 +178,11 @@ bool MainWindow::LoadImage(const QString& fileName) {
 
 bool MainWindow::LoadRaw(const QString& fileName) {
     ZoneScopedN("LoadRaw");
-    raw::RawLoader loader{};
+    brightroom::RawLoader loader{};
     _currentRaw = loader.LoadRaw(fileName.toStdString());
 
-    auto processed_image = _pipeline.Run(*_currentRaw, _parameters);
+    _pipeline->Preprocess(*_currentRaw);
+    auto processed_image = _pipeline->Process(*_currentRaw, _parameters);
     QImage new_image(processed_image.pixels.data(), processed_image.width, processed_image.height,
                      QImage::Format::Format_RGB888);
     if (new_image.isNull()) {
@@ -227,8 +218,8 @@ void MainWindow::SetImage(const QImage& new_image, bool fit_to_window) {
 }
 
 static void InitializeLoadRawFileDialog(QFileDialog& dialog) {
-    QStringList mimeTypeFilters;
-    dialog.setNameFilter(dialog.tr("Raw Images (*.ORF *.RAW *.DNG *.NEF *.CR2)"));
+    QStringList mime_type_filters;
+    dialog.setNameFilter(QFileDialog::tr("Raw Images (*.ORF *.RAW *.DNG *.NEF *.CR2)"));
     dialog.setAcceptMode(QFileDialog::AcceptOpen);
 }
 
@@ -240,11 +231,11 @@ void MainWindow::Open() {
 }
 
 void MainWindow::ZoomIn() {
-    ScaleImage(_zoom * ZOOM_IN_FACTOR);
+    ScaleImage(_zoom * kZoomInFactor);
 }
 
 void MainWindow::ZoomOut() {
-    ScaleImage(_zoom * ZOOM_OUT_FACTOR);
+    ScaleImage(_zoom * kZoomOutFactor);
 }
 
 void MainWindow::NormalSize() {
@@ -266,35 +257,35 @@ void MainWindow::FitToWindow() {
 }
 
 void MainWindow::CreateActions() {
-    QMenu* fileMenu = menuBar()->addMenu(tr("&File"));
+    QMenu* file_menu = menuBar()->addMenu(tr("&File"));
 
-    QAction* OpenAct = fileMenu->addAction(tr("&Open..."), this, &MainWindow::Open);
-    OpenAct->setShortcut(QKeySequence::Open);
+    QAction* open_act = file_menu->addAction(tr("&Open..."), this, &MainWindow::Open);
+    open_act->setShortcut(QKeySequence::Open);
 
-    fileMenu->addSeparator();
+    file_menu->addSeparator();
 
-    QAction* exitAct = fileMenu->addAction(tr("E&xit"), this, &QWidget::close);
-    exitAct->setShortcut(tr("Ctrl+Q"));
+    QAction* exit_act = file_menu->addAction(tr("E&xit"), this, &QWidget::close);
+    exit_act->setShortcut(tr("Ctrl+Q"));
 
     // QMenu* editMenu = menuBar()->addMenu(tr("&Edit"));
 
-    QMenu* viewMenu = menuBar()->addMenu(tr("&View"));
+    QMenu* view_menu = menuBar()->addMenu(tr("&View"));
 
-    _zoomInAct = viewMenu->addAction(tr("Zoom &In (25%)"), this, &MainWindow::ZoomIn);
+    _zoomInAct = view_menu->addAction(tr("Zoom &In (25%)"), this, &MainWindow::ZoomIn);
     _zoomInAct->setShortcut(QKeySequence::ZoomIn);
     // _zoomInAct->setEnabled(false);
 
-    _zoomOutAct = viewMenu->addAction(tr("Zoom &Out (25%)"), this, &MainWindow::ZoomOut);
+    _zoomOutAct = view_menu->addAction(tr("Zoom &Out (25%)"), this, &MainWindow::ZoomOut);
     _zoomOutAct->setShortcut(QKeySequence::ZoomOut);
     // _zoomOutAct->setEnabled(false);
 
-    _normalSizeAct = viewMenu->addAction(tr("&Normal Size"), this, &MainWindow::NormalSize);
+    _normalSizeAct = view_menu->addAction(tr("&Normal Size"), this, &MainWindow::NormalSize);
     _normalSizeAct->setShortcut(tr("Ctrl+S"));
     // _normalSizeAct->setEnabled(false);
 
-    viewMenu->addSeparator();
+    view_menu->addSeparator();
 
-    _fitToWindowAct = viewMenu->addAction(tr("&Fit to Window"), this, &MainWindow::FitToWindow);
+    _fitToWindowAct = view_menu->addAction(tr("&Fit to Window"), this, &MainWindow::FitToWindow);
     // _fitToWindowAct->setEnabled(false);
     _fitToWindowAct->setShortcut(tr("Ctrl+F"));
 }
@@ -336,22 +327,22 @@ bool MainWindow::eventFilter(QObject* obj, QEvent* event) {
 }
 
 void MainWindow::HandleWheelEvent(QWheelEvent* event) {
-    QPoint mousePos = event->position().toPoint();
-    double zoomFactor = (event->angleDelta().y() > 0) ? ZOOM_IN_FACTOR : ZOOM_OUT_FACTOR;
-    double newZoom = _zoom * zoomFactor;
+    QPoint mouse_pos = event->position().toPoint();
+    double zoom_factor = (event->angleDelta().y() > 0) ? kZoomInFactor : kZoomOutFactor;
+    double new_zoom = _zoom * zoom_factor;
 
     // Calculate relative position before zoom
-    double relX = (mousePos.x() + _scrollArea->horizontalScrollBar()->value()) / (_zoom * _fullSizeImage.width());
-    double relY = (mousePos.y() + _scrollArea->verticalScrollBar()->value()) / (_zoom * _fullSizeImage.height());
+    double rel_x = (mouse_pos.x() + _scrollArea->horizontalScrollBar()->value()) / (_zoom * _fullSizeImage.width());
+    double rel_y = (mouse_pos.y() + _scrollArea->verticalScrollBar()->value()) / (_zoom * _fullSizeImage.height());
 
-    ScaleImage(newZoom);
+    ScaleImage(new_zoom);
 
     // Maintain mouse position after zoom
-    int newX = static_cast<int>(relX * _zoom * _fullSizeImage.width() - mousePos.x());
-    int newY = static_cast<int>(relY * _zoom * _fullSizeImage.height() - mousePos.y());
+    int new_x = static_cast<int>(rel_x * _zoom * _fullSizeImage.width() - mouse_pos.x());
+    int new_y = static_cast<int>(rel_y * _zoom * _fullSizeImage.height() - mouse_pos.y());
 
-    _scrollArea->horizontalScrollBar()->setValue(newX);
-    _scrollArea->verticalScrollBar()->setValue(newY);
+    _scrollArea->horizontalScrollBar()->setValue(new_x);
+    _scrollArea->verticalScrollBar()->setValue(new_y);
 }
 
 void MainWindow::HandleMousePressEvent(QMouseEvent* event) {
@@ -383,7 +374,7 @@ void MainWindow::RefreshImage() {
     }
 
     std::cout << "Generating image with params: " << _parameters.ToString() << std::endl;
-    auto processed_image = _pipeline.Run(*_currentRaw, _parameters);
+    auto processed_image = _pipeline->Process(*_currentRaw, _parameters);
     QImage new_image(processed_image.pixels.data(), processed_image.width, processed_image.height,
                      QImage::Format::Format_RGB888);
 

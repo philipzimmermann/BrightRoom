@@ -4,7 +4,7 @@
 #include <string>
 #include "types.h"
 
-namespace raw {
+namespace brightroom {
 
 class RawLoader {
    public:
@@ -14,4 +14,4 @@ class RawLoader {
     int _cache;
 };
 
-}  // namespace raw
+}  // namespace brightroom
