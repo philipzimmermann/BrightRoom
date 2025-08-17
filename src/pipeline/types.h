@@ -2,7 +2,7 @@
 
 #include <cstdint>
 #include <vector>
-namespace raw {
+namespace brightroom {
 using RGB8_Data = std::vector<uint8_t>;
 
 // Bayer data assumed format:
@@ -25,4 +25,4 @@ struct RawFile {
     int width;
     int height;
 };
-}  // namespace raw
+}  // namespace brightroom

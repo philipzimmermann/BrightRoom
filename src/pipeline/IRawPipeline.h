@@ -2,7 +2,8 @@
 
 #include <libraw/libraw.h>
 #include "types.h"
-namespace raw {
+
+namespace brightroom {
 
 struct Parameters {
     float exposure = 1.0f;
@@ -15,11 +16,11 @@ struct Parameters {
     }
 };
 
-class Pipeline {
+class IRawPipeline {
    public:
-    Pipeline() = default;
-    auto Run(LibRaw& rawProcessor, const Parameters& parameters) const -> RgbImage;
-
-   private:
+    virtual void Preprocess(LibRaw& raw_data) = 0;
+    virtual auto Process(LibRaw& raw_data, const Parameters& parameters) -> RgbImage = 0;
+    virtual ~IRawPipeline() = default;
 };
-}  // namespace raw
+
+}  // namespace brightroom

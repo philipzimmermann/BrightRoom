@@ -1,4 +1,4 @@
-#include "raw_loader.h"
+#include "RawLoader.h"
 
 #include <libraw/libraw.h>
 #include <opencv2/core/hal/interface.h>
@@ -31,7 +31,7 @@ struct jpegErrorManager {
     jmp_buf setjmp_buffer;
 };
 
-raw::RgbImage CreateThumbnail(const LibRaw& _iProcessor) {
+brightroom::RgbImage CreateThumbnail(const LibRaw& _iProcessor) {
     ZoneScoped;
     const auto& thumbnail = _iProcessor.imgdata.thumbnail;
     jpegErrorManager jerr;
@@ -53,10 +53,10 @@ raw::RgbImage CreateThumbnail(const LibRaw& _iProcessor) {
         jpeg_read_scanlines(&cinfo, rowptr, 1);
     }
     jpeg_finish_decompress(&cinfo);  //finish decompressing
-    return raw::RgbImage{jdata, thumbnail.twidth, thumbnail.theight};
+    return brightroom::RgbImage{jdata, thumbnail.twidth, thumbnail.theight};
 }
 
-raw::RawFile CreateRawFile(LibRaw& _iProcessor) {
+brightroom::RawFile CreateRawFile(LibRaw& _iProcessor) {
     ZoneScoped;
     auto thumbnail = CreateThumbnail(_iProcessor);
     std::vector<uint16_t> rawdata(_iProcessor.imgdata.sizes.raw_width * _iProcessor.imgdata.sizes.raw_height * 3, 0);
@@ -83,7 +83,7 @@ raw::RawFile CreateRawFile(LibRaw& _iProcessor) {
     std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
     std::cout << "Time taken: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << " ms"
               << std::endl;
-    raw::RawFile raw_file;
+    brightroom::RawFile raw_file;
     raw_file.thumbnail = std::move(thumbnail);
     raw_file.rawdata = std::move(rawdata);
     raw_file.width = _iProcessor.imgdata.sizes.raw_width;
@@ -93,7 +93,7 @@ raw::RawFile CreateRawFile(LibRaw& _iProcessor) {
 }
 }  // namespace
 
-namespace raw {
+namespace brightroom {
 
 std::unique_ptr<LibRaw> RawLoader::LoadRaw(const std::string& file_name) {
     ZoneScoped;
@@ -118,4 +118,4 @@ std::unique_ptr<LibRaw> RawLoader::LoadRaw(const std::string& file_name) {
     return i_processor;
 }
 
-}  // namespace raw
+}  // namespace brightroom

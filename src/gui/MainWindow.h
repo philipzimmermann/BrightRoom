@@ -6,15 +6,15 @@
 #include <QMainWindow>
 #include <QScrollArea>
 #include <QSlider>
+#include "IRawPipeline.h"
+#include "MySlider.h"
 #include "libraw/libraw.h"
-#include "my_slider.h"
-#include "pipeline.h"
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
 
    public:
-    MainWindow(QWidget* parent = nullptr);
+    MainWindow(QWidget* parent, std::unique_ptr<brightroom::IRawPipeline> pipeline);
     bool LoadImage(const QString&);
     bool LoadRaw(const QString&);
 
@@ -65,12 +65,12 @@ class MainWindow : public QMainWindow {
     MySlider* _saturationSlider;
 
     std::unique_ptr<LibRaw> _currentRaw;
-    raw::Parameters _parameters{};
-    raw::Pipeline _pipeline;
+    brightroom::Parameters _parameters{};
+    std::unique_ptr<brightroom::IRawPipeline> _pipeline;
 
     // Add these constants
-    static constexpr double ZOOM_IN_FACTOR = 1.25;
-    static constexpr double ZOOM_OUT_FACTOR = 0.8;
-    static constexpr int SLIDER_TICK_INTERVAL = 33;
-    static constexpr int REFRESH_DELAY_MS = 150;
+    static constexpr double kZoomInFactor = 1.25;
+    static constexpr double kZoomOutFactor = 0.8;
+    static constexpr int kSliderTickInterval = 33;
+    static constexpr int kRefreshDelayMs = 150;
 };

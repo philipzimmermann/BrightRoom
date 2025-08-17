@@ -1,14 +1,15 @@
-#include <stdio.h>
 #include <QApplication>
 #include <QGuiApplication>
-#include "main_window.h"
+#include "HalideRawPipeline.h"
+#include "MainWindow.h"
 
 int main(int argc, char* argv[]) {
     printf("Hello, from brightroom!\n");
     //load_raw();
     QApplication app(argc, argv);
     QGuiApplication::setApplicationDisplayName("BrightRoom");
-    MainWindow main_window;
+    auto pipeline = std::make_unique<brightroom::HalideRawPipeline>();
+    MainWindow main_window{nullptr, std::move(pipeline)};
     main_window.show();
-    return app.exec();
+    return QApplication::exec();
 }
