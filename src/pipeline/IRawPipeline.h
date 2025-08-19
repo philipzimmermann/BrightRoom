@@ -2,6 +2,7 @@
 
 #include <libraw/libraw.h>
 #include "types.h"
+#include <string>
 
 namespace brightroom {
 
