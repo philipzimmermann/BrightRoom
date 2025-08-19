@@ -45,8 +45,24 @@ set(Halide_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/halide/lib/cmake/Halide)
 find_package(Halide REQUIRED)
 
 add_subdirectory(src/pipeline)
-
 add_subdirectory(src/gui)
+
+add_executable(${PROJECT_NAME} src/main.cpp)
+target_link_libraries(${PROJECT_NAME} PRIVATE gui)
+set_target_properties(${PROJECT_NAME} PROPERTIES
+    WIN32_EXECUTABLE ON
+    MACOSX_BUNDLE ON
+)
+
+
+# ------------------------------ Post-build ------------------------------
+
+if(WIN32)
+  add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD        # Adds a post-build event to MyTest
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different  # which executes "cmake - E copy_if_different..."
+      "${PROJECT_BINARY_DIR}/submodules/thirdparty/LibRaw-cmake/raw.dll"      # <--this is in-file
+      $<TARGET_FILE_DIR:${PROJECT_NAME}>)                 # <--this is out-file path
+endif()
 
 
 #CTest

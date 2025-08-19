@@ -26,8 +26,6 @@
 #include <QTimer>
 #include <QVBoxLayout>
 
-#include "Tracy.hpp"
-
 MainWindow::MainWindow(QWidget* parent, std::unique_ptr<brightroom::IRawPipeline> pipeline)
     : QMainWindow(parent), _imageLabel(new QLabel), _scrollArea(new QScrollArea), _pipeline(std::move(pipeline)) {
     setWindowTitle("BrightRoom");
@@ -177,7 +175,6 @@ bool MainWindow::LoadImage(const QString& fileName) {
 }
 
 bool MainWindow::LoadRaw(const QString& fileName) {
-    ZoneScopedN("LoadRaw");
     brightroom::RawLoader loader{};
     _currentRaw = loader.LoadRaw(fileName.toStdString());
 
