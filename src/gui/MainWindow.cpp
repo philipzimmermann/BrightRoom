@@ -1,8 +1,6 @@
 #include "MainWindow.h"
+#include <qdockwidget.h>
 #include <qimage.h>
-#include <iostream>
-#include "RawLoader.h"
-
 #include <QApplication>
 #include <QClipboard>
 #include <QColorSpace>
@@ -25,6 +23,8 @@
 #include <QStatusBar>
 #include <QTimer>
 #include <QVBoxLayout>
+#include <iostream>
+#include "RawLoader.h"
 
 MainWindow::MainWindow(QWidget* parent, std::unique_ptr<brightroom::IRawPipeline> pipeline)
     : QMainWindow(parent), _imageLabel(new QLabel), _scrollArea(new QScrollArea), _pipeline(std::move(pipeline)) {
@@ -70,7 +70,8 @@ auto MainWindow::CreateAdjustmentSlider(QWidget* parent, const QString& label, Q
 void MainWindow::CreateEditDock() {
     // Rename dock
     _editDock = new QDockWidget(tr("Edit"), this);
-    _editDock->setAllowedAreas(Qt::RightDockWidgetArea | Qt::LeftDockWidgetArea);
+    _editDock->setAllowedAreas(Qt::RightDockWidgetArea);
+    _editDock->setFeatures(QDockWidget::NoDockWidgetFeatures);
 
     auto* dockWidget = new QWidget(_editDock);
     auto* dockLayout = new QVBoxLayout(dockWidget);
@@ -92,8 +93,13 @@ void MainWindow::CreateEditDock() {
     auto* stackedWidget = new QStackedWidget(dockWidget);
 
     // --- Adjustments layout ---
+
     auto* adjustmentsWidget = new QWidget(stackedWidget);
     auto* adjustmentsLayout = new QVBoxLayout(adjustmentsWidget);
+
+    _histogramWidget = new HistogramWidget(adjustmentsWidget);
+    _histogramWidget->setMaximumHeight(200);
+    adjustmentsLayout->addWidget(_histogramWidget);
 
     _exposureSlider = CreateAdjustmentSlider(adjustmentsWidget, tr("Exposure"), adjustmentsLayout);
     _contrastSlider = CreateAdjustmentSlider(adjustmentsWidget, tr("Contrast"), adjustmentsLayout);
@@ -377,6 +383,8 @@ void MainWindow::UpdateImage() {
     std::cout << "Generating image with params: " << _parameters.ToString() << std::endl;
     auto processed_image = _pipeline->Process(*_currentRaw, _parameters);
     auto histogram = _pipeline->GetHistogram();
+
+    _histogramWidget->updateHistogram(histogram);
 
     QImage new_image(processed_image.pixels.data(), processed_image.width, processed_image.height,
                      QImage::Format::Format_RGB888);

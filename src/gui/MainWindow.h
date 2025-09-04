@@ -10,6 +10,8 @@
 #include "MySlider.h"
 #include "libraw/libraw.h"
 
+#include "HistogramWidget.h"
+
 class MainWindow : public QMainWindow {
     Q_OBJECT
 
@@ -73,4 +75,7 @@ class MainWindow : public QMainWindow {
     static constexpr double kZoomOutFactor = 0.8;
     static constexpr int kSliderTickInterval = 33;
     static constexpr int kDebounceDelayMs = 100;
+
+    QDockWidget* _histogramDock;
+    HistogramWidget* _histogramWidget;
 };
