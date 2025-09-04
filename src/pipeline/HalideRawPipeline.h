@@ -12,10 +12,12 @@ class HalideRawPipeline : public IRawPipeline {
     HalideRawPipeline() = default;
     void Preprocess(LibRaw& raw_data) override;
     auto Process(LibRaw& raw_data, const Parameters& parameters) -> RgbImage override;
+    auto GetHistogram() -> Histogram override;
 
    private:
     Halide::Runtime::Buffer<float> _demosaiced_buffer;
     std::vector<uint8_t> _rgb8_vector;
     Halide::Runtime::Buffer<uint8_t> _rgb8_buffer;
+    Histogram _histogram;
 };
 }  // namespace brightroom

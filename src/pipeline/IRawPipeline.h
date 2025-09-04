@@ -1,8 +1,8 @@
 #pragma once
 
 #include <libraw/libraw.h>
-#include "types.h"
 #include <string>
+#include "types.h"
 
 namespace brightroom {
 
@@ -21,6 +21,7 @@ class IRawPipeline {
    public:
     virtual void Preprocess(LibRaw& raw_data) = 0;
     virtual auto Process(LibRaw& raw_data, const Parameters& parameters) -> RgbImage = 0;
+    virtual auto GetHistogram() -> Histogram = 0;
     virtual ~IRawPipeline() = default;
 };
 

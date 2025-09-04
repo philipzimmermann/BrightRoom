@@ -136,3 +136,44 @@ class ProcessRawGenerator : public Halide::Generator<ProcessRawGenerator> {
 };
 
 HALIDE_REGISTER_GENERATOR(ProcessRawGenerator, process_raw_generator)
+
+class HistogramGenerator : public Halide::Generator<HistogramGenerator> {
+   public:
+    // Inputs
+    Input<Buffer<uint8_t, 3>> input{"input"};
+
+    // Output
+    Output<Buffer<uint8_t, 1>> output{"output"};  // Histogram output
+
+    // Intermediate stages
+    Var x{"x"}, y{"y"}, c{"c"};
+    Var yo{"yo"}, yi{"yi"};
+
+    void generate() {
+        // See tutorial https://halide-lang.org/tutorials/tutorial_lesson_09_update_definitions.html
+
+        Func histogram("histogram");
+        // Histogram buckets start as zero.
+        histogram(x) = Halide::cast<uint8_t>(0);
+        RDom r(0, input.width(), 0, input.height());
+        Expr intensity = Halide::cast<uint8_t>(brightroom::Luminance(input, r.x, r.y));
+        histogram(intensity) += Halide::cast<uint8_t>(1);
+
+        output = histogram;
+
+        // For interleaved input
+        input.dim(0).set_stride(3);
+        input.dim(2).set_stride(1);
+        input.dim(2).set_bounds(0, 3);  // Dimension 2 (c) starts at 0 and has extent 3.
+
+        // Schedule
+        constexpr bool kAutoSchedule = true;
+        if (kAutoSchedule) {
+            // Let the autoscheduler handle it
+            input.set_estimates({{0, 4000}, {0, 6000}, {0, 3}});
+            output.set_estimates({{0, 256}});
+        }
+    }
+};
+
+HALIDE_REGISTER_GENERATOR(HistogramGenerator, histogram_generator)

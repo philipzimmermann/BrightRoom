@@ -43,7 +43,7 @@ MainWindow::MainWindow(QWidget* parent, std::unique_ptr<brightroom::IRawPipeline
     _refreshTimer = new QTimer(this);
     _refreshTimer->setSingleShot(true);
     _refreshTimer->setInterval(kDebounceDelayMs);
-    connect(_refreshTimer, &QTimer::timeout, this, &MainWindow::RefreshImage);
+    connect(_refreshTimer, &QTimer::timeout, this, &MainWindow::UpdateImage);
 
     CreateEditDock();
     CreateActions();
@@ -365,7 +365,7 @@ void MainWindow::HandleMouseMoveEvent(QMouseEvent* event) {
     _lastDragPos = event->pos();
 }
 
-void MainWindow::RefreshImage() {
+void MainWindow::UpdateImage() {
     // TODO: This should run in a separate worker thread
     if (!_currentRaw) {
         return;
@@ -376,6 +376,8 @@ void MainWindow::RefreshImage() {
 
     std::cout << "Generating image with params: " << _parameters.ToString() << std::endl;
     auto processed_image = _pipeline->Process(*_currentRaw, _parameters);
+    auto histogram = _pipeline->GetHistogram();
+
     QImage new_image(processed_image.pixels.data(), processed_image.width, processed_image.height,
                      QImage::Format::Format_RGB888);
 

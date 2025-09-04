@@ -34,7 +34,7 @@ class MainWindow : public QMainWindow {
     void ScaleImage(double requested_zoom);
     void AdjustScrollBar(QScrollBar* scroll_bar, double zoom_change);
     void CreateEditDock();
-    void RefreshImage();
+    void UpdateImage();
     void QueueImageRefresh();
     void ConnectSlider(MySlider* slider, std::function<void(float)> value_changed);
     void HandleWheelEvent(QWheelEvent* event);
