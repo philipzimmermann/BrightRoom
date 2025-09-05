@@ -32,10 +32,12 @@ MainWindow::MainWindow(QWidget* parent, std::unique_ptr<brightroom::IRawPipeline
     _imageLabel->setBackgroundRole(QPalette::Base);
     _imageLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Ignored);
     _imageLabel->setScaledContents(true);
+    _imageLabel->setAlignment(Qt::AlignCenter);  // Add this line to center the image
 
     _scrollArea->setBackgroundRole(QPalette::Dark);
     _scrollArea->setWidget(_imageLabel);
     _scrollArea->setVisible(true);
+    _scrollArea->setAlignment(Qt::AlignCenter);  // Add this line to center the scroll area content
     _scrollArea->viewport()->installEventFilter(this);
     setCentralWidget(_scrollArea);
 
@@ -245,16 +247,22 @@ void MainWindow::NormalSize() {
     _zoom = 1.0;
 }
 
-void MainWindow::FitToWindow() {
-
+void MainWindow::UpdateFitZoom() {
     // Calculate scale factors for both width and height
     double scale_width = static_cast<double>(_scrollArea->viewport()->size().width()) / _fullSizeImage.width();
     double scale_height = static_cast<double>(_scrollArea->viewport()->size().height()) / _fullSizeImage.height();
 
     // Use the larger scale factor to ensure the image fills the window
     _fit_zoom = std::min(scale_width, scale_height);
+}
 
-    // Apply the scaling
+void MainWindow::resizeEvent(QResizeEvent* event) {
+    UpdateFitZoom();
+    QMainWindow::resizeEvent(event);
+}
+
+void MainWindow::FitToWindow() {
+    UpdateFitZoom();
     ScaleImage(_fit_zoom);
 }
 
@@ -288,13 +296,13 @@ void MainWindow::CreateActions() {
     view_menu->addSeparator();
 
     _fitToWindowAct = view_menu->addAction(tr("&Fit to Window"), this, &MainWindow::FitToWindow);
-    // _fitToWindowAct->setEnabled(false);
     _fitToWindowAct->setShortcut(tr("f"));
 }
 
 void MainWindow::ScaleImage(double requested_zoom) {
     double old_zoom = _zoom;
-    _zoom = std::clamp(requested_zoom, _fit_zoom, 1.0);
+    constexpr double kMaxZoom = 2.0;
+    _zoom = std::clamp(requested_zoom, _fit_zoom, kMaxZoom);
     _imageLabel->resize(_zoom * _fullSizeImage.size());
 
     AdjustScrollBar(_scrollArea->horizontalScrollBar(), _zoom / old_zoom);

@@ -22,6 +22,7 @@ class MainWindow : public QMainWindow {
 
    protected:
     bool eventFilter(QObject* obj, QEvent* event) override;
+    void resizeEvent(QResizeEvent* event) override;
 
    private slots:
     void Open();
@@ -35,6 +36,7 @@ class MainWindow : public QMainWindow {
     void SetImage(const QImage& new_image, bool fit_to_window);
     void ScaleImage(double requested_zoom);
     void AdjustScrollBar(QScrollBar* scroll_bar, double zoom_change);
+    void UpdateFitZoom();
     void CreateEditDock();
     void UpdateImage();
     void QueueImageRefresh();
