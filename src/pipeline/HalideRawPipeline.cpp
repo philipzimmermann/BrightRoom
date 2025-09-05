@@ -123,6 +123,8 @@ auto HalideRawPipeline::Process(LibRaw& raw_data, const Parameters& parameters) 
 }
 
 auto HalideRawPipeline::GetHistogram() -> Histogram {
+
+    // TODO: Should not be computed on full image, but on a downsampled image
     auto total_start = Clock::now();
 
     auto error = histogram_generator(_rgb8_buffer.raw_buffer(), _histogram_buffer.raw_buffer());

@@ -49,7 +49,7 @@ MainWindow::MainWindow(QWidget* parent, std::unique_ptr<brightroom::IRawPipeline
     CreateActions();
 
     resize(QGuiApplication::primaryScreen()->availableSize() * 3 / 5);
-    QTimer::singleShot(0, this, [this]() { LoadRaw("/media/philip/Data SSD/photos/2025/06/22/QI9B7671.CR2"); });
+    QTimer::singleShot(0, this, [this]() { LoadRaw("/media/philip/Data SSD/photos/2025/07/21/P7210132.ORF"); });
 }
 
 auto MainWindow::CreateAdjustmentSlider(QWidget* parent, const QString& label, QVBoxLayout* layout) -> MySlider* {

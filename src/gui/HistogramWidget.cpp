@@ -1,4 +1,5 @@
 #include "HistogramWidget.h"
+#include <qcolor.h>
 #include <qnamespace.h>
 #include <qpainterpath.h>
 #include <QPainter>
@@ -29,7 +30,7 @@ void HistogramWidget::paintEvent(QPaintEvent*) {
     int draw_height = height() - 2 * kMargin;
 
     // Draw background
-    painter.fillRect(rect(), QColor(240, 240, 240));
+    painter.fillRect(rect(), QColor(35, 35, 35));
 
     // Draw histogram
     QPainterPath path;
@@ -51,6 +52,6 @@ void HistogramWidget::paintEvent(QPaintEvent*) {
     painter.fillPath(path, QColor(100, 100, 100, 128));
 
     // Draw outline
-    painter.setPen(QPen(Qt::gray, 1));
+    painter.setPen(QPen(QColor(200, 200, 200), 1));
     painter.drawPath(path);
 }
