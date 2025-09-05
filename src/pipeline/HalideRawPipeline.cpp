@@ -49,6 +49,7 @@ void HalideRawPipeline::Preprocess(LibRaw& raw_data) {
     wb_factors(0) = wb_r / max_wb;
     wb_factors(1) = wb_g / max_wb;
     wb_factors(2) = wb_b / max_wb;
+    std::cout << "WB factors: " << wb_factors(0) << ", " << wb_factors(1) << ", " << wb_factors(2) << "\n";
 
     // Create buffer for color space conversion matrix
     Halide::Runtime::Buffer<float> rgb_cam_buffer(3, 3);
@@ -58,8 +59,8 @@ void HalideRawPipeline::Preprocess(LibRaw& raw_data) {
         }
     }
 
-    auto demosaiced_buffer = Halide::Runtime::Buffer<float>::make_interleaved(raw_data.imgdata.sizes.raw_width,
-                                                                              raw_data.imgdata.sizes.raw_height, 3);
+    auto preprocessed_buffer = Halide::Runtime::Buffer<float>::make_interleaved(raw_data.imgdata.sizes.raw_width,
+                                                                                raw_data.imgdata.sizes.raw_height, 3);
     std::cout << "Running preprocess..." << "\n";
     step_start = Clock::now();
 
@@ -69,14 +70,15 @@ void HalideRawPipeline::Preprocess(LibRaw& raw_data) {
                                           static_cast<int>(raw_data.imgdata.color.black),    // Global black level
                                           cblack_buffer.raw_buffer(),                        // Per-channel black levels
                                           static_cast<int>(raw_data.imgdata.color.maximum),  // White level
-                                          demosaiced_buffer.raw_buffer());
+                                          wb_factors.raw_buffer(),                           // White balance factors
+                                          preprocessed_buffer.raw_buffer());
     if (error != 0) {
         std::cout << "Preprocess error: " << error << "\n";
     }
     std::cout << "Preprocess time: " << std::chrono::duration_cast<Duration>(Clock::now() - step_start).count() << " ms"
               << "\n";
 
-    _demosaiced_buffer = std::move(demosaiced_buffer);
+    _preprocessed_buffer = std::move(preprocessed_buffer);
 
     step_start = Clock::now();
     // Allocate vector for final image output
@@ -94,16 +96,6 @@ auto HalideRawPipeline::Process(LibRaw& raw_data, const Parameters& parameters) 
     auto total_start = Clock::now();
     auto step_start = Clock::now();
 
-    // Create buffer for white balance factors
-    Halide::Runtime::Buffer<float> wb_factors(3);
-    float wb_r = raw_data.imgdata.color.cam_mul[0];
-    float wb_g = raw_data.imgdata.color.cam_mul[1];
-    float wb_b = raw_data.imgdata.color.cam_mul[2];
-    float max_wb = std::max({wb_r, wb_g, wb_b});
-    wb_factors(0) = wb_r / max_wb;
-    wb_factors(1) = wb_g / max_wb;
-    wb_factors(2) = wb_b / max_wb;
-
     // Create buffer for color space conversion matrix
     Halide::Runtime::Buffer<float> rgb_cam_buffer(3, 3);
     for (int i = 0; i < 3; i++) {
@@ -118,10 +110,9 @@ auto HalideRawPipeline::Process(LibRaw& raw_data, const Parameters& parameters) 
     Parameters scaled_parameters = ScaleParameters(parameters);
 
     // Call the generator with all parameters
-    auto error =
-        process_raw_generator(_demosaiced_buffer.raw_buffer(), wb_factors.raw_buffer(), scaled_parameters.exposure,
-                              rgb_cam_buffer.raw_buffer(), scaled_parameters.contrast, scaled_parameters.saturation,
-                              _rgb8_buffer.raw_buffer());
+    auto error = process_raw_generator(_preprocessed_buffer.raw_buffer(), scaled_parameters.exposure,
+                                       rgb_cam_buffer.raw_buffer(), scaled_parameters.contrast,
+                                       scaled_parameters.saturation, _rgb8_buffer.raw_buffer());
     if (error != 0) {
         std::cout << "Process error: " << error << "\n";
     }

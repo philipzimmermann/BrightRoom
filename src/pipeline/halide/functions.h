@@ -34,10 +34,7 @@ inline auto WhiteLevel(Halide::Func input, Halide::Var x, Halide::Var y, Halide:
 inline auto WhiteBalance(Halide::Func input, Halide::Var x, Halide::Var y, Halide::Var c,
                          Func wb_factors) -> Halide::Func {
     Halide::Func white_balanced("white_balanced");
-    white_balanced(x, y, c) = input(x, y, c) * Halide::select(c == 0, wb_factors(0),  // Red channel
-                                                              c == 1, wb_factors(1),  // Green channel
-                                                              wb_factors(2)           // Blue channel
-                                               );
+    white_balanced(x, y, c) = input(x, y, c) * wb_factors(c);
     return white_balanced;
 }
 
@@ -135,10 +132,8 @@ inline auto Exposure(Halide::Func input, Halide::Var x, Halide::Var y, Halide::V
 inline auto ColorSpaceConversion(Halide::Func input, Halide::Var x, Halide::Var y, Halide::Var c,
                                  Func rgb_cam) -> Halide::Func {
     Halide::Func color_space_converted("color_space_converted");
-    color_space_converted(x, y, c) = Halide::select(
-        c == 0, rgb_cam(0, 0) * input(x, y, 0) + rgb_cam(0, 1) * input(x, y, 1) + rgb_cam(0, 2) * input(x, y, 2),
-        c == 1, rgb_cam(1, 0) * input(x, y, 0) + rgb_cam(1, 1) * input(x, y, 1) + rgb_cam(1, 2) * input(x, y, 2),
-        rgb_cam(2, 0) * input(x, y, 0) + rgb_cam(2, 1) * input(x, y, 1) + rgb_cam(2, 2) * input(x, y, 2));
+    color_space_converted(x, y, c) =
+        rgb_cam(c, 0) * input(x, y, 0) + rgb_cam(c, 1) * input(x, y, 1) + rgb_cam(c, 2) * input(x, y, 2);
     return color_space_converted;
 }
 

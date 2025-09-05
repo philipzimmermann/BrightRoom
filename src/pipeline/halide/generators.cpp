@@ -9,6 +9,7 @@ class PreprocessRawGenerator : public Halide::Generator<PreprocessRawGenerator> 
     Input<int> black_level{"black_level"};      // Global black level
     Input<Buffer<int, 1>> cblack{"cblack"};     // Per-channel black levels
     Input<int> white_input{"white_input"};      // White level
+    Input<Buffer<float, 1>> wb_factors{"wb_factors"};
 
     // Output
     Output<Buffer<float, 3>> output{"output"};  // Intermediate output
@@ -31,7 +32,20 @@ class PreprocessRawGenerator : public Halide::Generator<PreprocessRawGenerator> 
         // Demosaic
         Func demosaiced = brightroom::DemosaicBilinear(white_adjusted, x, y, c, fc);
 
-        output = demosaiced;
+        // White balance
+        Func white_balanced = brightroom::WhiteBalance(demosaiced, x, y, c, wb_factors);
+
+        RDom rdom(input.dim(0).min(), input.dim(0).extent(), input.dim(1).min(), input.dim(1).extent());
+
+        auto max_red = Halide::maximum(white_balanced(rdom.x, rdom.y, 0));
+        auto max_green = Halide::maximum(white_balanced(rdom.x, rdom.y, 1));
+        auto max_blue = Halide::maximum(white_balanced(rdom.x, rdom.y, 2));
+        auto min_channels = Halide::min(max_red, max_green, max_blue);
+
+        Func clipped("clipped");
+        clipped(x, y, c) = Halide::min(white_balanced(x, y, c), min_channels);
+
+        output = clipped;
 
         // For interleaved output
         output.dim(0).set_stride(3);
@@ -45,6 +59,7 @@ class PreprocessRawGenerator : public Halide::Generator<PreprocessRawGenerator> 
             black_level.set_estimate(0);
             cblack.set_estimates({{0, 4}});
             white_input.set_estimate(0);
+            wb_factors.set_estimates({{0, 3}});
             output.set_estimates({{0, 4000}, {0, 6000}, {0, 3}});
         }
     }
@@ -56,7 +71,7 @@ class ProcessRawGenerator : public Halide::Generator<ProcessRawGenerator> {
    public:
     // Inputs
     Input<Buffer<float, 3>> input{"input"};
-    Input<Buffer<float, 1>> wb_factors{"wb_factors"};
+
     Input<float> exposure{"exposure"};
     Input<Buffer<float, 2>> rgb_cam{"rgb_cam"};
     Input<float> contrast_factor{"contrast_factor"};
@@ -70,12 +85,8 @@ class ProcessRawGenerator : public Halide::Generator<ProcessRawGenerator> {
     Var yo{"yo"}, yi{"yi"};
 
     void generate() {
-
-        // White balance
-        Func white_balanced = brightroom::WhiteBalance(input, x, y, c, wb_factors);
-
         // Exposure compensation
-        Func exposure_adjusted = brightroom::Exposure(white_balanced, x, y, c, exposure);
+        Func exposure_adjusted = brightroom::Exposure(input, x, y, c, exposure);
 
         // Tone mapping
         // Func log_sum = brightroom::LogSum(exposure_adjusted, x, y, input.width(), input.height());
@@ -117,7 +128,6 @@ class ProcessRawGenerator : public Halide::Generator<ProcessRawGenerator> {
         if (kAutoSchedule) {
             // Let the autoscheduler handle it
             input.set_estimates({{0, 4000}, {0, 6000}, {0, 3}});
-            wb_factors.set_estimates({{0, 3}});
             rgb_cam.set_estimates({{0, 3}, {0, 3}});
             exposure.set_estimate(3.0f);
             contrast_factor.set_estimate(1.5f);
