@@ -1,7 +1,10 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <vector>
+#include "constants.h"
+
 namespace brightroom {
 using RGB8_Data = std::vector<uint8_t>;
 
@@ -18,6 +21,8 @@ struct RgbImage {
     int width;
     int height;
 };
+
+using Histogram = std::array<uint32_t, kHistogramBins>;
 
 struct RawFile {
     RgbImage thumbnail;

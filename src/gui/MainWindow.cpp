@@ -1,8 +1,6 @@
 #include "MainWindow.h"
+#include <qdockwidget.h>
 #include <qimage.h>
-#include <iostream>
-#include "RawLoader.h"
-
 #include <QApplication>
 #include <QClipboard>
 #include <QColorSpace>
@@ -25,6 +23,8 @@
 #include <QStatusBar>
 #include <QTimer>
 #include <QVBoxLayout>
+#include <iostream>
+#include "RawLoader.h"
 
 MainWindow::MainWindow(QWidget* parent, std::unique_ptr<brightroom::IRawPipeline> pipeline)
     : QMainWindow(parent), _imageLabel(new QLabel), _scrollArea(new QScrollArea), _pipeline(std::move(pipeline)) {
@@ -43,20 +43,19 @@ MainWindow::MainWindow(QWidget* parent, std::unique_ptr<brightroom::IRawPipeline
     _refreshTimer = new QTimer(this);
     _refreshTimer->setSingleShot(true);
     _refreshTimer->setInterval(kDebounceDelayMs);
-    connect(_refreshTimer, &QTimer::timeout, this, &MainWindow::RefreshImage);
+    connect(_refreshTimer, &QTimer::timeout, this, &MainWindow::UpdateImage);
 
     CreateEditDock();
     CreateActions();
 
     resize(QGuiApplication::primaryScreen()->availableSize() * 3 / 5);
-    // QTimer::singleShot(0, this, [this]() { LoadRaw("/media/philip/Data SSD/photos/2025/06/22/QI9B7671.CR2"); });
+    QTimer::singleShot(0, this, [this]() { LoadRaw("/media/philip/Data SSD/photos/2025/07/21/P7210132.ORF"); });
 }
 
 auto MainWindow::CreateAdjustmentSlider(QWidget* parent, const QString& label, QVBoxLayout* layout) -> MySlider* {
     auto* slider_label = new QLabel(label, parent);
     auto* slider = new MySlider(Qt::Horizontal, parent);
-    constexpr int kSliderRange = 100;
-    slider->setRange(-kSliderRange, kSliderRange);
+    slider->setRange(kSliderRangeMin, kSliderRangeMax);
     slider->setValue(0);
     slider->setTickPosition(QSlider::TicksBelow);
     slider->setTickInterval(kSliderTickInterval);
@@ -70,11 +69,12 @@ auto MainWindow::CreateAdjustmentSlider(QWidget* parent, const QString& label, Q
 void MainWindow::CreateEditDock() {
     // Rename dock
     _editDock = new QDockWidget(tr("Edit"), this);
-    _editDock->setAllowedAreas(Qt::RightDockWidgetArea | Qt::LeftDockWidgetArea);
+    _editDock->setAllowedAreas(Qt::RightDockWidgetArea);
+    _editDock->setFeatures(QDockWidget::NoDockWidgetFeatures);
 
     auto* dockWidget = new QWidget(_editDock);
     auto* dockLayout = new QVBoxLayout(dockWidget);
-    dockWidget->setMinimumWidth(200);
+    dockWidget->setMinimumWidth(300);
 
     // Button row for layout switching
     auto* buttonLayout = new QHBoxLayout();
@@ -92,8 +92,13 @@ void MainWindow::CreateEditDock() {
     auto* stackedWidget = new QStackedWidget(dockWidget);
 
     // --- Adjustments layout ---
+
     auto* adjustmentsWidget = new QWidget(stackedWidget);
     auto* adjustmentsLayout = new QVBoxLayout(adjustmentsWidget);
+
+    _histogramWidget = new HistogramWidget(adjustmentsWidget);
+    _histogramWidget->setMaximumHeight(200);
+    adjustmentsLayout->addWidget(_histogramWidget);
 
     _exposureSlider = CreateAdjustmentSlider(adjustmentsWidget, tr("Exposure"), adjustmentsLayout);
     _contrastSlider = CreateAdjustmentSlider(adjustmentsWidget, tr("Contrast"), adjustmentsLayout);
@@ -129,12 +134,9 @@ void MainWindow::CreateEditDock() {
     connect(cropBtn, &QPushButton::clicked, [stackedWidget]() { stackedWidget->setCurrentIndex(2); });
 
     // Connect sliders (same as before)
-    ConnectSlider(_exposureSlider,
-                  [this](float value) { _parameters.exposure = std::pow(2.0f, value / kSliderTickInterval); });
-    ConnectSlider(_contrastSlider,
-                  [this](float value) { _parameters.contrast = std::pow(1.5f, value / kSliderTickInterval); });
-    ConnectSlider(_saturationSlider,
-                  [this](float value) { _parameters.saturation = std::pow(2.0f, value / kSliderTickInterval); });
+    ConnectSlider(_exposureSlider, [this](float value) { _parameters.exposure = value / kSliderTickInterval; });
+    ConnectSlider(_contrastSlider, [this](float value) { _parameters.contrast = value / kSliderTickInterval; });
+    ConnectSlider(_saturationSlider, [this](float value) { _parameters.saturation = value / kSliderTickInterval; });
 }
 
 // Helper method for connecting sliders
@@ -180,6 +182,9 @@ bool MainWindow::LoadRaw(const QString& fileName) {
 
     _pipeline->Preprocess(*_currentRaw);
     auto processed_image = _pipeline->Process(*_currentRaw, _parameters);
+    auto histogram = _pipeline->GetHistogram();
+    _histogramWidget->updateHistogram(histogram);
+
     QImage new_image(processed_image.pixels.data(), processed_image.width, processed_image.height,
                      QImage::Format::Format_RGB888);
     if (new_image.isNull()) {
@@ -365,7 +370,7 @@ void MainWindow::HandleMouseMoveEvent(QMouseEvent* event) {
     _lastDragPos = event->pos();
 }
 
-void MainWindow::RefreshImage() {
+void MainWindow::UpdateImage() {
     // TODO: This should run in a separate worker thread
     if (!_currentRaw) {
         return;
@@ -376,6 +381,10 @@ void MainWindow::RefreshImage() {
 
     std::cout << "Generating image with params: " << _parameters.ToString() << std::endl;
     auto processed_image = _pipeline->Process(*_currentRaw, _parameters);
+    auto histogram = _pipeline->GetHistogram();
+
+    _histogramWidget->updateHistogram(histogram);
+
     QImage new_image(processed_image.pixels.data(), processed_image.width, processed_image.height,
                      QImage::Format::Format_RGB888);
 

@@ -10,6 +10,8 @@
 #include "MySlider.h"
 #include "libraw/libraw.h"
 
+#include "HistogramWidget.h"
+
 class MainWindow : public QMainWindow {
     Q_OBJECT
 
@@ -34,7 +36,7 @@ class MainWindow : public QMainWindow {
     void ScaleImage(double requested_zoom);
     void AdjustScrollBar(QScrollBar* scroll_bar, double zoom_change);
     void CreateEditDock();
-    void RefreshImage();
+    void UpdateImage();
     void QueueImageRefresh();
     void ConnectSlider(MySlider* slider, std::function<void(float)> value_changed);
     void HandleWheelEvent(QWheelEvent* event);
@@ -71,6 +73,11 @@ class MainWindow : public QMainWindow {
     // Add these constants
     static constexpr double kZoomInFactor = 1.25;
     static constexpr double kZoomOutFactor = 0.8;
-    static constexpr int kSliderTickInterval = 33;
+    static constexpr int kSliderTickInterval = 50;
+    static constexpr int kSliderRangeMin = -150;
+    static constexpr int kSliderRangeMax = 150;
     static constexpr int kDebounceDelayMs = 100;
+
+    QDockWidget* _histogramDock;
+    HistogramWidget* _histogramWidget;
 };
