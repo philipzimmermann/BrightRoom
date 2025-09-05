@@ -1,22 +1,20 @@
 #include "HistogramWidget.h"
+#include <qnamespace.h>
 #include <qpainterpath.h>
 #include <QPainter>
 #include <algorithm>
+#include "constants.h"
 
 HistogramWidget::HistogramWidget(QWidget* parent) : QWidget(parent) {
     setMinimumSize(kMinWidth + 2 * kMargin, kMinHeight + 2 * kMargin);
 }
 
-void HistogramWidget::updateHistogram(const std::array<uint8_t, 256>& histogram) {
+void HistogramWidget::updateHistogram(const std::array<uint32_t, brightroom::kHistogramBins>& histogram) {
     _histogram = histogram;
     update();  // Request a repaint
 }
 
 void HistogramWidget::paintEvent(QPaintEvent*) {
-    if (_histogram.empty()) {
-        return;
-    }
-
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
 
@@ -53,6 +51,6 @@ void HistogramWidget::paintEvent(QPaintEvent*) {
     painter.fillPath(path, QColor(100, 100, 100, 128));
 
     // Draw outline
-    painter.setPen(QPen(Qt::black, 1));
+    painter.setPen(QPen(Qt::gray, 1));
     painter.drawPath(path);
 }

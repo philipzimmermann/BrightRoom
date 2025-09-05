@@ -25,6 +25,7 @@ target_link_libraries(pipeline
     PRIVATE preprocess_raw_generator
     PRIVATE process_raw_generator
     PRIVATE histogram_generator
+    PUBLIC common
     TracyClient)
     
 target_include_directories(pipeline PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

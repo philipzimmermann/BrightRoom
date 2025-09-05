@@ -124,16 +124,12 @@ auto HalideRawPipeline::Process(LibRaw& raw_data, const Parameters& parameters) 
 
 auto HalideRawPipeline::GetHistogram() -> Histogram {
     auto total_start = Clock::now();
-    auto step_start = Clock::now();
 
-    auto histogram_buffer = Halide::Runtime::Buffer<uint8_t>(kHistogramBins);
-    auto error = histogram_generator(_rgb8_buffer.raw_buffer(), histogram_buffer.raw_buffer());
+    auto error = histogram_generator(_rgb8_buffer.raw_buffer(), _histogram_buffer.raw_buffer());
     if (error != 0) {
         std::cout << "Histogram error: " << error << "\n";
     }
-    std::cout << "Histogram time: " << std::chrono::duration_cast<Duration>(Clock::now() - step_start).count() << " ms"
-              << "\n";
-    std::copy(histogram_buffer.data(), histogram_buffer.data() + kHistogramBins, _histogram.begin());
+    std::copy(_histogram_buffer.data(), _histogram_buffer.data() + kHistogramBins, _histogram.begin());
 
     std::cout << "Total histogram time: " << std::chrono::duration_cast<Duration>(Clock::now() - total_start).count()
               << " ms" << "\n";

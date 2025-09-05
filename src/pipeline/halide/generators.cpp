@@ -143,7 +143,7 @@ class HistogramGenerator : public Halide::Generator<HistogramGenerator> {
     Input<Buffer<uint8_t, 3>> input{"input"};
 
     // Output
-    Output<Buffer<uint8_t, 1>> output{"output"};  // Histogram output
+    Output<Buffer<uint32_t, 1>> output{"output"};  // Histogram output
 
     // Intermediate stages
     Var x{"x"}, y{"y"}, c{"c"};
@@ -154,10 +154,11 @@ class HistogramGenerator : public Halide::Generator<HistogramGenerator> {
 
         Func histogram("histogram");
         // Histogram buckets start as zero.
-        histogram(x) = Halide::cast<uint8_t>(0);
+        histogram(x) = Halide::cast<uint32_t>(0);
         RDom r(0, input.width(), 0, input.height());
-        Expr intensity = Halide::cast<uint8_t>(Halide::clamp(brightroom::Luminance(input, r.x, r.y), 0.0f, 255.0f));
-        histogram(intensity) += Halide::cast<uint8_t>(1);
+        Expr intensity =
+            Halide::cast<uint8_t>(Halide::round(Halide::clamp(brightroom::Luminance(input, r.x, r.y), 0.0f, 255.0f)));
+        histogram(intensity) += Halide::cast<uint32_t>(1);
 
         output = histogram;
 

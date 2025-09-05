@@ -22,7 +22,7 @@ struct RgbImage {
     int height;
 };
 
-using Histogram = std::array<uint8_t, kHistogramBins>;
+using Histogram = std::array<uint32_t, kHistogramBins>;
 
 struct RawFile {
     RgbImage thumbnail;

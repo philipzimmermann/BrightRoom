@@ -49,7 +49,7 @@ MainWindow::MainWindow(QWidget* parent, std::unique_ptr<brightroom::IRawPipeline
     CreateActions();
 
     resize(QGuiApplication::primaryScreen()->availableSize() * 3 / 5);
-    // QTimer::singleShot(0, this, [this]() { LoadRaw("/media/philip/Data SSD/photos/2025/06/22/QI9B7671.CR2"); });
+    QTimer::singleShot(0, this, [this]() { LoadRaw("/media/philip/Data SSD/photos/2025/06/22/QI9B7671.CR2"); });
 }
 
 auto MainWindow::CreateAdjustmentSlider(QWidget* parent, const QString& label, QVBoxLayout* layout) -> MySlider* {
@@ -186,6 +186,9 @@ bool MainWindow::LoadRaw(const QString& fileName) {
 
     _pipeline->Preprocess(*_currentRaw);
     auto processed_image = _pipeline->Process(*_currentRaw, _parameters);
+    auto histogram = _pipeline->GetHistogram();
+    _histogramWidget->updateHistogram(histogram);
+
     QImage new_image(processed_image.pixels.data(), processed_image.width, processed_image.height,
                      QImage::Format::Format_RGB888);
     if (new_image.isNull()) {

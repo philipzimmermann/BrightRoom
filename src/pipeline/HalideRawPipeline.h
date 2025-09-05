@@ -18,6 +18,7 @@ class HalideRawPipeline : public IRawPipeline {
     Halide::Runtime::Buffer<float> _demosaiced_buffer;
     std::vector<uint8_t> _rgb8_vector;
     Halide::Runtime::Buffer<uint8_t> _rgb8_buffer;
+    Halide::Runtime::Buffer<uint32_t> _histogram_buffer = Halide::Runtime::Buffer<uint32_t>(kHistogramBins);
     Histogram _histogram;
 };
 }  // namespace brightroom

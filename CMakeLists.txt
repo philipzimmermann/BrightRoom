@@ -46,9 +46,10 @@ find_package(Halide REQUIRED)
 
 add_subdirectory(src/pipeline)
 add_subdirectory(src/gui)
+add_subdirectory(src/common)
 
 add_executable(${PROJECT_NAME} src/main.cpp)
-target_link_libraries(${PROJECT_NAME} PRIVATE gui)
+target_link_libraries(${PROJECT_NAME} PRIVATE gui common)
 set_target_properties(${PROJECT_NAME} PROPERTIES
     WIN32_EXECUTABLE ON
     MACOSX_BUNDLE ON
