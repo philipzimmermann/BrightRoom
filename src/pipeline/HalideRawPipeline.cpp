@@ -13,6 +13,19 @@ namespace brightroom {
 using Clock = std::chrono::steady_clock;
 using Duration = std::chrono::milliseconds;
 
+namespace {
+auto ScaleParameters(const Parameters& parameters) -> Parameters {
+    // Frontend has range -3 to 3 for all parameters where 0 means no change.
+    // We need to scale them for the halide pipeline.
+
+    Parameters scaled_parameters;
+    scaled_parameters.exposure = std::pow(2.0F, parameters.exposure) * 3.0F;
+    scaled_parameters.contrast = std::pow(1.5F, parameters.contrast) * 1.5F;
+    scaled_parameters.saturation = std::pow(2.0F, parameters.saturation);
+    return scaled_parameters;
+}
+}  // namespace
+
 void HalideRawPipeline::Preprocess(LibRaw& raw_data) {
     auto total_start = Clock::now();
     auto step_start = Clock::now();
@@ -102,14 +115,13 @@ auto HalideRawPipeline::Process(LibRaw& raw_data, const Parameters& parameters) 
     std::cout << "Running process..." << "\n";
     step_start = Clock::now();
 
+    Parameters scaled_parameters = ScaleParameters(parameters);
+
     // Call the generator with all parameters
-    auto error = process_raw_generator(_demosaiced_buffer.raw_buffer(),  // Raw Bayer input
-                                       wb_factors.raw_buffer(),          // White balance factors
-                                       parameters.exposure * 3.0f,       // Exposure compensation
-                                       rgb_cam_buffer.raw_buffer(),      // Color space conversion matrix
-                                       parameters.contrast * 1.5f,       // Contrast factor
-                                       parameters.saturation * 1.0f,     // Saturation factor
-                                       _rgb8_buffer.raw_buffer());
+    auto error =
+        process_raw_generator(_demosaiced_buffer.raw_buffer(), wb_factors.raw_buffer(), scaled_parameters.exposure,
+                              rgb_cam_buffer.raw_buffer(), scaled_parameters.contrast, scaled_parameters.saturation,
+                              _rgb8_buffer.raw_buffer());
     if (error != 0) {
         std::cout << "Process error: " << error << "\n";
     }

@@ -7,9 +7,9 @@
 namespace brightroom {
 
 struct Parameters {
-    float exposure = 1.0f;
-    float contrast = 1.0f;
-    float saturation = 1.0f;
+    float exposure = 0.0f;
+    float contrast = 0.0f;
+    float saturation = 0.0f;
 
     auto ToString() const -> std::string {
         return "Exposure: " + std::to_string(exposure) + ", Contrast: " + std::to_string(contrast) +

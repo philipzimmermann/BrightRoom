@@ -55,8 +55,7 @@ MainWindow::MainWindow(QWidget* parent, std::unique_ptr<brightroom::IRawPipeline
 auto MainWindow::CreateAdjustmentSlider(QWidget* parent, const QString& label, QVBoxLayout* layout) -> MySlider* {
     auto* slider_label = new QLabel(label, parent);
     auto* slider = new MySlider(Qt::Horizontal, parent);
-    constexpr int kSliderRange = 100;
-    slider->setRange(-kSliderRange, kSliderRange);
+    slider->setRange(kSliderRangeMin, kSliderRangeMax);
     slider->setValue(0);
     slider->setTickPosition(QSlider::TicksBelow);
     slider->setTickInterval(kSliderTickInterval);
@@ -75,7 +74,7 @@ void MainWindow::CreateEditDock() {
 
     auto* dockWidget = new QWidget(_editDock);
     auto* dockLayout = new QVBoxLayout(dockWidget);
-    dockWidget->setMinimumWidth(200);
+    dockWidget->setMinimumWidth(300);
 
     // Button row for layout switching
     auto* buttonLayout = new QHBoxLayout();
@@ -135,12 +134,9 @@ void MainWindow::CreateEditDock() {
     connect(cropBtn, &QPushButton::clicked, [stackedWidget]() { stackedWidget->setCurrentIndex(2); });
 
     // Connect sliders (same as before)
-    ConnectSlider(_exposureSlider,
-                  [this](float value) { _parameters.exposure = std::pow(2.0f, value / kSliderTickInterval); });
-    ConnectSlider(_contrastSlider,
-                  [this](float value) { _parameters.contrast = std::pow(1.5f, value / kSliderTickInterval); });
-    ConnectSlider(_saturationSlider,
-                  [this](float value) { _parameters.saturation = std::pow(2.0f, value / kSliderTickInterval); });
+    ConnectSlider(_exposureSlider, [this](float value) { _parameters.exposure = value / kSliderTickInterval; });
+    ConnectSlider(_contrastSlider, [this](float value) { _parameters.contrast = value / kSliderTickInterval; });
+    ConnectSlider(_saturationSlider, [this](float value) { _parameters.saturation = value / kSliderTickInterval; });
 }
 
 // Helper method for connecting sliders

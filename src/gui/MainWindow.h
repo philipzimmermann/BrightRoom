@@ -73,7 +73,9 @@ class MainWindow : public QMainWindow {
     // Add these constants
     static constexpr double kZoomInFactor = 1.25;
     static constexpr double kZoomOutFactor = 0.8;
-    static constexpr int kSliderTickInterval = 33;
+    static constexpr int kSliderTickInterval = 50;
+    static constexpr int kSliderRangeMin = -150;
+    static constexpr int kSliderRangeMax = 150;
     static constexpr int kDebounceDelayMs = 100;
 
     QDockWidget* _histogramDock;

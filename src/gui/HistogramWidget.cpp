@@ -19,11 +19,7 @@ void HistogramWidget::paintEvent(QPaintEvent*) {
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
 
-    // Find the maximum value for scaling
     float max_value = *std::max_element(_histogram.begin(), _histogram.end());
-    if (max_value <= 0) {
-        return;
-    }
 
     // Calculate drawing area
     int draw_width = width() - 2 * kMargin;
@@ -37,11 +33,11 @@ void HistogramWidget::paintEvent(QPaintEvent*) {
     path.moveTo(kMargin, height() - kMargin);
 
     float x_scale = static_cast<float>(draw_width) / (_histogram.size() - 1);
-    float y_scale = draw_height / max_value;
+    float y_scale = static_cast<float>(draw_height) / max_value;
 
     for (size_t i = 0; i < _histogram.size(); ++i) {
         float x = kMargin + i * x_scale;
-        float y = height() - kMargin - (_histogram[i] * y_scale);
+        float y = height() - kMargin - _histogram[i] * y_scale;
         path.lineTo(x, y);
     }
 
