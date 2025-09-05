@@ -282,14 +282,14 @@ void MainWindow::CreateActions() {
     // _zoomOutAct->setEnabled(false);
 
     _normalSizeAct = view_menu->addAction(tr("&Normal Size"), this, &MainWindow::NormalSize);
-    _normalSizeAct->setShortcut(tr("Ctrl+S"));
+    _normalSizeAct->setShortcut(tr("1"));
     // _normalSizeAct->setEnabled(false);
 
     view_menu->addSeparator();
 
     _fitToWindowAct = view_menu->addAction(tr("&Fit to Window"), this, &MainWindow::FitToWindow);
     // _fitToWindowAct->setEnabled(false);
-    _fitToWindowAct->setShortcut(tr("Ctrl+F"));
+    _fitToWindowAct->setShortcut(tr("f"));
 }
 
 void MainWindow::ScaleImage(double requested_zoom) {
