@@ -107,6 +107,8 @@ std::unique_ptr<LibRaw> RawLoader::LoadRaw(const std::string& file_name) {
 
     // The metadata are accessible through data fields of the class
     printf("Image size: %d x %d\n", i_processor->imgdata.sizes.width, i_processor->imgdata.sizes.height);
+    printf("Usable area: raw:%d width: %d iwidth: %d \n", i_processor->imgdata.rawdata.sizes.raw_width,
+           i_processor->imgdata.rawdata.sizes.width, i_processor->imgdata.rawdata.sizes.iwidth);
 
     // Fills _iProcessor.rawdata.raw_image
     i_processor->unpack();

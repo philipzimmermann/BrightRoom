@@ -28,3 +28,4 @@ void ImageProcessorWorker::ProcessImage(const brightroom::Parameters& parameters
 
     emit ImageProcessed(std::move(processed_image), histogram);
 }
+

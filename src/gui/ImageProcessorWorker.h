@@ -27,3 +27,4 @@ class ImageProcessorWorker : public QObject {
     std::unique_ptr<LibRaw> _raw_data;
     brightroom::RawLoader _raw_loader{};
 };
+
