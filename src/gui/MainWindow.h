@@ -33,12 +33,12 @@ class MainWindow : public QMainWindow {
 
    private:
     void CreateActions();
-    void SetImage(const QImage& new_image, bool fit_to_window);
+    void SetImage(const QImage& new_image);
     void ScaleImage(double requested_zoom);
     void AdjustScrollBar(QScrollBar* scroll_bar, double zoom_change);
     void UpdateFitZoom();
     void CreateEditDock();
-    void UpdateImage();
+    void ProcessImage();
     void QueueImageRefresh();
     void ConnectSlider(MySlider* slider, std::function<void(float)> value_changed);
     void HandleWheelEvent(QWheelEvent* event);

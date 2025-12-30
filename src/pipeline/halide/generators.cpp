@@ -35,13 +35,12 @@ class PreprocessRawGenerator : public Halide::Generator<PreprocessRawGenerator> 
         // White balance
         Func white_balanced = brightroom::WhiteBalance(demosaiced, x, y, c, wb_factors);
 
+        // Clip overexposed highlights
         RDom rdom(input.dim(0).min(), input.dim(0).extent(), input.dim(1).min(), input.dim(1).extent());
-
         auto max_red = Halide::maximum(white_balanced(rdom.x, rdom.y, 0));
         auto max_green = Halide::maximum(white_balanced(rdom.x, rdom.y, 1));
         auto max_blue = Halide::maximum(white_balanced(rdom.x, rdom.y, 2));
         auto min_channels = Halide::min(max_red, max_green, max_blue);
-
         Func clipped("clipped");
         clipped(x, y, c) = Halide::min(white_balanced(x, y, c), min_channels);
 
@@ -51,17 +50,14 @@ class PreprocessRawGenerator : public Halide::Generator<PreprocessRawGenerator> 
         output.dim(0).set_stride(3);
         output.dim(2).set_stride(1);
 
-        constexpr bool kAutoSchedule = true;
-        if (kAutoSchedule) {
-            // Let the autoscheduler handle it
-            input.set_estimates({{0, 4000}, {0, 6000}});
-            filters.set_estimate(0);
-            black_level.set_estimate(0);
-            cblack.set_estimates({{0, 4}});
-            white_input.set_estimate(0);
-            wb_factors.set_estimates({{0, 3}});
-            output.set_estimates({{0, 4000}, {0, 6000}, {0, 3}});
-        }
+        // Set estimates for autoscheduler
+        input.set_estimates({{0, 4000}, {0, 6000}});
+        filters.set_estimate(0);
+        black_level.set_estimate(0);
+        cblack.set_estimates({{0, 4}});
+        white_input.set_estimate(0);
+        wb_factors.set_estimates({{0, 3}});
+        output.set_estimates({{0, 4000}, {0, 6000}, {0, 3}});
     }
 };
 
@@ -123,29 +119,58 @@ class ProcessRawGenerator : public Halide::Generator<ProcessRawGenerator> {
 
         output.reorder(c, x, y).unroll(c);
 
-        // Schedule
-        constexpr bool kAutoSchedule = true;
-        if (kAutoSchedule) {
-            // Let the autoscheduler handle it
-            input.set_estimates({{0, 4000}, {0, 6000}, {0, 3}});
-            rgb_cam.set_estimates({{0, 3}, {0, 3}});
-            exposure.set_estimate(3.0f);
-            contrast_factor.set_estimate(1.5f);
-            saturation_factor.set_estimate(1.0f);
-            output.set_estimates({{0, 4000}, {0, 6000}, {0, 3}});
-        } else {
-            // Manual schedule similar to your original pipeline
-            output.split(y, yo, yi, 32).parallel(yo).vectorize(x, 16);
-            saturation_adjusted.store_at(output, yo).compute_at(output, yi).vectorize(x, 8);
-            contrast_adjusted.store_at(output, yo).compute_at(output, yi).vectorize(x, 8);
-            gamma_corrected.store_at(output, yo).compute_at(output, yi).vectorize(x, 8);
-            srgb.store_at(output, yo).compute_at(output, yi).vectorize(x, 8);
-            // tone_mapped.store_at(output, yo).compute_at(output, yi).vectorize(x, 8);
-        }
+        // Set estimates for autoscheduler
+        input.set_estimates({{0, 4000}, {0, 6000}, {0, 3}});
+        rgb_cam.set_estimates({{0, 3}, {0, 3}});
+        exposure.set_estimate(3.0f);
+        contrast_factor.set_estimate(1.5f);
+        saturation_factor.set_estimate(1.0f);
+        output.set_estimates({{0, 4000}, {0, 6000}, {0, 3}});
     }
 };
 
 HALIDE_REGISTER_GENERATOR(ProcessRawGenerator, process_raw_generator)
+
+class DownscaleGenerator : public Halide::Generator<DownscaleGenerator> {
+   public:
+    // Inputs
+    Input<Buffer<uint8_t, 3>> input{"input"};
+
+    // Output
+    Output<Buffer<uint8_t, 3>> output{"output"};
+
+    // Intermediate stages
+    Var x{"x"}, y{"y"}, c{"c"};
+    Var yo{"yo"}, yi{"yi"};
+
+    void generate() {
+
+        Func in("in");
+        in(x, y, c) = cast<uint16_t>(input(x, y, c));
+
+        // Box filter over 2x2 pixels
+        Func down("down");
+        down(x, y, c) =
+            (in(2 * x, 2 * y, c) + in(2 * x + 1, 2 * y, c) + in(2 * x, 2 * y + 1, c) + in(2 * x + 1, 2 * y + 1, c)) / 4;
+
+        // Cast back to uint8
+        output(x, y, c) = cast<uint8_t>(down(x, y, c));
+
+        // For interleaved output
+        input.dim(0).set_stride(3);
+        input.dim(2).set_stride(1);
+        input.dim(2).set_bounds(0, 3);  // Dimension 2 (c) starts at 0 and has extent 3.
+
+        output.dim(0).set_stride(3);
+        output.dim(2).set_stride(1);
+        output.dim(2).set_bounds(0, 3);
+
+        // Estimates for autoscheduler
+        input.set_estimates({{0, 4000}, {0, 6000}, {0, 3}});
+        output.set_estimates({{0, 2000}, {0, 3000}, {0, 3}});
+    }
+};
+HALIDE_REGISTER_GENERATOR(DownscaleGenerator, downscale_generator)
 
 class HistogramGenerator : public Halide::Generator<HistogramGenerator> {
    public:

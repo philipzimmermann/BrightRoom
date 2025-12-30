@@ -45,7 +45,7 @@ MainWindow::MainWindow(QWidget* parent, std::unique_ptr<brightroom::IRawPipeline
     _refreshTimer = new QTimer(this);
     _refreshTimer->setSingleShot(true);
     _refreshTimer->setInterval(kDebounceDelayMs);
-    connect(_refreshTimer, &QTimer::timeout, this, &MainWindow::UpdateImage);
+    connect(_refreshTimer, &QTimer::timeout, this, &MainWindow::ProcessImage);
 
     CreateEditDock();
     CreateActions();
@@ -157,43 +157,13 @@ void MainWindow::QueueImageRefresh() {
     _refreshTimer->start();
 }
 
-bool MainWindow::LoadImage(const QString& fileName) {
-    QImageReader reader(fileName);
-    reader.setAutoTransform(true);
-    const QImage new_image = reader.read();
-    if (new_image.isNull()) {
-        QMessageBox::information(
-            this, QGuiApplication::applicationDisplayName(),
-            tr("Cannot load %1: %2").arg(QDir::toNativeSeparators(fileName), reader.errorString()));
-        return false;
-    }
-    SetImage(new_image, true);
-    setWindowFilePath(fileName);
-    const QString message = tr("Opened \"%1\", %2x%3, Depth: %4")
-                                .arg(QDir::toNativeSeparators(fileName))
-                                .arg(_fullSizeImage.width())
-                                .arg(_fullSizeImage.height())
-                                .arg(_fullSizeImage.depth());
-    statusBar()->showMessage(message);
-    return true;
-}
-
 bool MainWindow::LoadRaw(const QString& fileName) {
     brightroom::RawLoader loader{};
     _currentRaw = loader.LoadRaw(fileName.toStdString());
 
     _pipeline->Preprocess(*_currentRaw);
-    auto processed_image = _pipeline->Process(*_currentRaw, _parameters);
-    auto histogram = _pipeline->GetHistogram();
-    _histogramWidget->updateHistogram(histogram);
-
-    QImage new_image(processed_image.pixels.data(), processed_image.width, processed_image.height,
-                     QImage::Format::Format_RGB888);
-    if (new_image.isNull()) {
-        QMessageBox::information(this, QGuiApplication::applicationDisplayName(), tr("Cannot load %1: %2"));
-        return false;
-    }
-    SetImage(new_image, true);
+    ProcessImage();
+    FitToWindow();
 
     setWindowFilePath(fileName);
     const QString message = tr("Opened \"%1\", %2x%3, Depth: %4")
@@ -205,20 +175,15 @@ bool MainWindow::LoadRaw(const QString& fileName) {
     return true;
 }
 
-void MainWindow::SetImage(const QImage& new_image, bool fit_to_window) {
+void MainWindow::SetImage(const QImage& new_image) {
     _fullSizeImage = new_image;
     if (_fullSizeImage.colorSpace().isValid()) {
         _fullSizeImage.convertToColorSpace(QColorSpace::SRgb);
     }
     _imageLabel->setPixmap(QPixmap::fromImage(_fullSizeImage));
-    _scrollArea->setVisible(true);
-    _fitToWindowAct->setEnabled(true);
     _imageLabel->adjustSize();
-    if (fit_to_window) {
-        FitToWindow();
-    } else {
-        ScaleImage(_zoom);
-    }
+    _fitToWindowAct->setEnabled(true);
+    ScaleImage(_zoom);
 }
 
 static void InitializeLoadRawFileDialog(QFileDialog& dialog) {
@@ -378,14 +343,11 @@ void MainWindow::HandleMouseMoveEvent(QMouseEvent* event) {
     _lastDragPos = event->pos();
 }
 
-void MainWindow::UpdateImage() {
+void MainWindow::ProcessImage() {
     // TODO: This should run in a separate worker thread
     if (!_currentRaw) {
         return;
     }
-
-    // std::cout << "Sleeping 1000ms\n";
-    // std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
     std::cout << "Generating image with params: " << _parameters.ToString() << std::endl;
     auto processed_image = _pipeline->Process(*_currentRaw, _parameters);
@@ -395,8 +357,9 @@ void MainWindow::UpdateImage() {
 
     QImage new_image(processed_image.pixels.data(), processed_image.width, processed_image.height,
                      QImage::Format::Format_RGB888);
-
-    if (!new_image.isNull()) {
-        SetImage(new_image, false);
+    if (new_image.isNull()) {
+        QMessageBox::information(this, QGuiApplication::applicationDisplayName(), tr("Cannot load %1: %2"));
+        return;
     }
+    SetImage(new_image);
 }

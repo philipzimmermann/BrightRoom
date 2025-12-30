@@ -1,4 +1,5 @@
 add_halide_generator(generator_target SOURCES halide/generators.cpp)
+
 add_halide_library(preprocess_raw_generator FROM generator_target
 AUTOSCHEDULER Halide::Adams2019
 SCHEDULE "schedule.txt"
@@ -7,8 +8,11 @@ add_halide_library(process_raw_generator FROM generator_target
 AUTOSCHEDULER Halide::Adams2019
 SCHEDULE "schedule.txt"
 )
-
 add_halide_library(histogram_generator FROM generator_target
+AUTOSCHEDULER Halide::Adams2019
+SCHEDULE "schedule.txt"
+)
+add_halide_library(downscale_generator FROM generator_target
 AUTOSCHEDULER Halide::Adams2019
 SCHEDULE "schedule.txt"
 )
@@ -25,6 +29,7 @@ target_link_libraries(pipeline
     PRIVATE preprocess_raw_generator
     PRIVATE process_raw_generator
     PRIVATE histogram_generator
+    PRIVATE downscale_generator
     PUBLIC common
     TracyClient)
     

@@ -3,6 +3,7 @@
 #include <chrono>
 #include <cstdint>
 #include <iostream>
+#include "downscale_generator.h"
 #include "histogram_generator.h"
 #include "libraw/libraw.h"
 #include "preprocess_raw_generator.h"
@@ -34,6 +35,9 @@ void HalideRawPipeline::Preprocess(LibRaw& raw_data) {
     Halide::Runtime::Buffer<uint16_t> input_buffer(raw_data.imgdata.rawdata.raw_image, raw_data.imgdata.sizes.raw_width,
                                                    raw_data.imgdata.sizes.raw_height);
 
+    _width = raw_data.imgdata.sizes.raw_width;
+    _height = raw_data.imgdata.sizes.raw_height;
+
     // Create buffer for cblack values
     Halide::Runtime::Buffer<int> cblack_buffer(4);
     for (int i = 0; i < 4; i++) {
@@ -59,8 +63,7 @@ void HalideRawPipeline::Preprocess(LibRaw& raw_data) {
         }
     }
 
-    auto preprocessed_buffer = Halide::Runtime::Buffer<float>::make_interleaved(raw_data.imgdata.sizes.raw_width,
-                                                                                raw_data.imgdata.sizes.raw_height, 3);
+    auto preprocessed_buffer = Halide::Runtime::Buffer<float>::make_interleaved(_width, _height, 3);
     std::cout << "Running preprocess..." << "\n";
     step_start = Clock::now();
 
@@ -81,11 +84,15 @@ void HalideRawPipeline::Preprocess(LibRaw& raw_data) {
     _preprocessed_buffer = std::move(preprocessed_buffer);
 
     step_start = Clock::now();
-    // Allocate vector for final image output
-    _rgb8_vector.resize(raw_data.imgdata.sizes.raw_width * raw_data.imgdata.sizes.raw_height * 3);
-    // Wrap the vector as a interleaved Halide buffer
-    _rgb8_buffer = Halide::Runtime::Buffer<uint8_t>::make_interleaved(
-        _rgb8_vector.data(), raw_data.imgdata.sizes.raw_width, raw_data.imgdata.sizes.raw_height, 3);
+    // Allocate vector and Halide buffer for the final image output
+    _rgb8_vector.resize(_width * _height * 3);
+    _rgb8_buffer = Halide::Runtime::Buffer<uint8_t>::make_interleaved(_rgb8_vector.data(), _width, _height, 3);
+
+    // Prepare second vector and Halide buffer for the downscaled image
+    _downscaled_vector.resize(_width / _downscale_factor * _height / _downscale_factor * 3);
+    _downscaled_buffer = Halide::Runtime::Buffer<uint8_t>::make_interleaved(
+        _downscaled_vector.data(), _width / _downscale_factor, _height / _downscale_factor, 3);
+
     std::cout << "RGB8 vector time: " << std::chrono::duration_cast<Duration>(Clock::now() - step_start).count()
               << " ms" << "\n";
     std::cout << "Total Preprocess time: " << std::chrono::duration_cast<Duration>(Clock::now() - total_start).count()
@@ -118,11 +125,34 @@ auto HalideRawPipeline::Process(LibRaw& raw_data, const Parameters& parameters) 
     }
     std::cout << "Process time: " << std::chrono::duration_cast<Duration>(Clock::now() - step_start).count() << " ms"
               << "\n";
+    step_start = Clock::now();
+    error = downscale_generator(_rgb8_buffer.raw_buffer(), _downscaled_buffer.raw_buffer());
+    if (error != 0) {
+        std::cout << "Downscale error: " << error << "\n";
+    }
+    std::cout << "Downscale time: " << std::chrono::duration_cast<Duration>(Clock::now() - step_start).count() << " ms"
+              << "\n";
 
     std::cout << "Total process time: " << std::chrono::duration_cast<Duration>(Clock::now() - total_start).count()
               << " ms" << "\n";
 
-    return {_rgb8_vector, raw_data.imgdata.sizes.raw_width, raw_data.imgdata.sizes.raw_height};
+    return {_rgb8_vector, _width, _height};
+}
+
+auto HalideRawPipeline::DownscaleImage() -> RgbImage {
+
+    // TODO: Should not be computed on full image, but on a downsampled image
+    auto total_start = Clock::now();
+
+    auto error = downscale_generator(_rgb8_buffer.raw_buffer(), _downscaled_buffer.raw_buffer());
+    if (error != 0) {
+        std::cout << "Downscale error: " << error << "\n";
+    }
+
+    std::cout << "Total downscale time: " << std::chrono::duration_cast<Duration>(Clock::now() - total_start).count()
+              << " ms" << "\n";
+
+    return {_downscaled_vector, _width / _downscale_factor, _height / _downscale_factor};
 }
 
 auto HalideRawPipeline::GetHistogram() -> Histogram {
@@ -130,7 +160,7 @@ auto HalideRawPipeline::GetHistogram() -> Histogram {
     // TODO: Should not be computed on full image, but on a downsampled image
     auto total_start = Clock::now();
 
-    auto error = histogram_generator(_rgb8_buffer.raw_buffer(), _histogram_buffer.raw_buffer());
+    auto error = histogram_generator(_downscaled_buffer.raw_buffer(), _histogram_buffer.raw_buffer());
     if (error != 0) {
         std::cout << "Histogram error: " << error << "\n";
     }
