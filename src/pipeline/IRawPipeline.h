@@ -22,7 +22,6 @@ class IRawPipeline {
     virtual void Preprocess(LibRaw& raw_data) = 0;
     virtual auto Process(LibRaw& raw_data, const Parameters& parameters) -> RgbImage = 0;
     virtual auto GetHistogram() -> Histogram = 0;
-    virtual auto DownscaleImage() -> RgbImage = 0;
     virtual ~IRawPipeline() = default;
 };
 

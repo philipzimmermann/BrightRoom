@@ -355,7 +355,8 @@ void MainWindow::ProcessImage() {
 
     _histogramWidget->updateHistogram(histogram);
 
-    QImage new_image(processed_image.pixels.data(), processed_image.width, processed_image.height,
+    const int bytes_per_line = processed_image.width * 3;
+    QImage new_image(processed_image.pixels.data(), processed_image.width, processed_image.height, bytes_per_line,
                      QImage::Format::Format_RGB888);
     if (new_image.isNull()) {
         QMessageBox::information(this, QGuiApplication::applicationDisplayName(), tr("Cannot load %1: %2"));

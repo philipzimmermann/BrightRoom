@@ -131,30 +131,31 @@ class ProcessRawGenerator : public Halide::Generator<ProcessRawGenerator> {
 
 HALIDE_REGISTER_GENERATOR(ProcessRawGenerator, process_raw_generator)
 
-class DownscaleGenerator : public Halide::Generator<DownscaleGenerator> {
+class DownsampleGenerator : public Halide::Generator<DownsampleGenerator> {
    public:
     // Inputs
     Input<Buffer<uint8_t, 3>> input{"input"};
+    Input<int> downsample_factor{"downsample_factor"};
 
     // Output
     Output<Buffer<uint8_t, 3>> output{"output"};
 
     // Intermediate stages
     Var x{"x"}, y{"y"}, c{"c"};
-    Var yo{"yo"}, yi{"yi"};
 
     void generate() {
 
         Func in("in");
-        in(x, y, c) = cast<uint16_t>(input(x, y, c));
+        in(x, y, c) = cast<uint16_t>(Halide::BoundaryConditions::repeat_edge(input)(x, y, c));
 
-        // Box filter over 2x2 pixels
-        Func down("down");
-        down(x, y, c) =
-            (in(2 * x, 2 * y, c) + in(2 * x + 1, 2 * y, c) + in(2 * x, 2 * y + 1, c) + in(2 * x + 1, 2 * y + 1, c)) / 4;
+        Expr patch_area = downsample_factor * downsample_factor;
+        RDom r(0, downsample_factor, 0, downsample_factor);
+
+        Expr patch_sum = sum(in(x * downsample_factor + r.x, y * downsample_factor + r.y, c));
+        Expr patch_mean = (patch_sum + patch_area / 2) / patch_area;
 
         // Cast back to uint8
-        output(x, y, c) = cast<uint8_t>(down(x, y, c));
+        output(x, y, c) = cast<uint8_t>(patch_mean);
 
         // For interleaved output
         input.dim(0).set_stride(3);
@@ -167,10 +168,11 @@ class DownscaleGenerator : public Halide::Generator<DownscaleGenerator> {
 
         // Estimates for autoscheduler
         input.set_estimates({{0, 4000}, {0, 6000}, {0, 3}});
+        downsample_factor.set_estimate(8);
         output.set_estimates({{0, 2000}, {0, 3000}, {0, 3}});
     }
 };
-HALIDE_REGISTER_GENERATOR(DownscaleGenerator, downscale_generator)
+HALIDE_REGISTER_GENERATOR(DownsampleGenerator, downsample_generator)
 
 class HistogramGenerator : public Halide::Generator<HistogramGenerator> {
    public:

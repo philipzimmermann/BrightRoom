@@ -3,7 +3,7 @@
 #include <chrono>
 #include <cstdint>
 #include <iostream>
-#include "downscale_generator.h"
+#include "downsample_generator.h"
 #include "histogram_generator.h"
 #include "libraw/libraw.h"
 #include "preprocess_raw_generator.h"
@@ -89,9 +89,9 @@ void HalideRawPipeline::Preprocess(LibRaw& raw_data) {
     _rgb8_buffer = Halide::Runtime::Buffer<uint8_t>::make_interleaved(_rgb8_vector.data(), _width, _height, 3);
 
     // Prepare second vector and Halide buffer for the downscaled image
-    _downscaled_vector.resize(_width / _downscale_factor * _height / _downscale_factor * 3);
-    _downscaled_buffer = Halide::Runtime::Buffer<uint8_t>::make_interleaved(
-        _downscaled_vector.data(), _width / _downscale_factor, _height / _downscale_factor, 3);
+    _downsampled_vector.resize((_width / _downsample_factor) * (_height / _downsample_factor) * 3);
+    _downsampled_buffer = Halide::Runtime::Buffer<uint8_t>::make_interleaved(
+        _downsampled_vector.data(), _width / _downsample_factor, _height / _downsample_factor, 3);
 
     std::cout << "RGB8 vector time: " << std::chrono::duration_cast<Duration>(Clock::now() - step_start).count()
               << " ms" << "\n";
@@ -126,7 +126,7 @@ auto HalideRawPipeline::Process(LibRaw& raw_data, const Parameters& parameters) 
     std::cout << "Process time: " << std::chrono::duration_cast<Duration>(Clock::now() - step_start).count() << " ms"
               << "\n";
     step_start = Clock::now();
-    error = downscale_generator(_rgb8_buffer.raw_buffer(), _downscaled_buffer.raw_buffer());
+    error = downsample_generator(_rgb8_buffer.raw_buffer(), _downsample_factor, _downsampled_buffer.raw_buffer());
     if (error != 0) {
         std::cout << "Downscale error: " << error << "\n";
     }
@@ -139,28 +139,12 @@ auto HalideRawPipeline::Process(LibRaw& raw_data, const Parameters& parameters) 
     return {_rgb8_vector, _width, _height};
 }
 
-auto HalideRawPipeline::DownscaleImage() -> RgbImage {
-
-    // TODO: Should not be computed on full image, but on a downsampled image
-    auto total_start = Clock::now();
-
-    auto error = downscale_generator(_rgb8_buffer.raw_buffer(), _downscaled_buffer.raw_buffer());
-    if (error != 0) {
-        std::cout << "Downscale error: " << error << "\n";
-    }
-
-    std::cout << "Total downscale time: " << std::chrono::duration_cast<Duration>(Clock::now() - total_start).count()
-              << " ms" << "\n";
-
-    return {_downscaled_vector, _width / _downscale_factor, _height / _downscale_factor};
-}
-
 auto HalideRawPipeline::GetHistogram() -> Histogram {
 
     // TODO: Should not be computed on full image, but on a downsampled image
     auto total_start = Clock::now();
 
-    auto error = histogram_generator(_downscaled_buffer.raw_buffer(), _histogram_buffer.raw_buffer());
+    auto error = histogram_generator(_downsampled_buffer.raw_buffer(), _histogram_buffer.raw_buffer());
     if (error != 0) {
         std::cout << "Histogram error: " << error << "\n";
     }
