@@ -1,6 +1,7 @@
 #pragma once
 
 #include <libraw/libraw.h>
+#include <QMetaType>
 #include <string>
 #include "types.h"
 
@@ -26,3 +27,6 @@ class IRawPipeline {
 };
 
 }  // namespace brightroom
+
+// Register types with Qt's meta-type system for use in signals/slots
+Q_DECLARE_METATYPE(brightroom::Parameters)

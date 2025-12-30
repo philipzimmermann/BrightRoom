@@ -6,9 +6,10 @@
 #include <QMainWindow>
 #include <QScrollArea>
 #include <QSlider>
+#include <QThread>
 #include "IRawPipeline.h"
+#include "ImageProcessorWorker.h"
 #include "MySlider.h"
-#include "libraw/libraw.h"
 
 #include "HistogramWidget.h"
 
@@ -17,6 +18,7 @@ class MainWindow : public QMainWindow {
 
    public:
     MainWindow(QWidget* parent, std::unique_ptr<brightroom::IRawPipeline> pipeline);
+    ~MainWindow();
     bool LoadImage(const QString&);
     bool LoadRaw(const QString&);
 
@@ -24,12 +26,18 @@ class MainWindow : public QMainWindow {
     bool eventFilter(QObject* obj, QEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
 
+   signals:
+    void LoadRawRequested(const QString& fileName, const brightroom::Parameters& parameters);
+    void ProcessImageRequested(const brightroom::Parameters& parameters);
+
    private slots:
     void Open();
     void ZoomIn();
     void ZoomOut();
     void NormalSize();
     void FitToWindow();
+    void OnImageProcessed(brightroom::RgbImage image, brightroom::Histogram histogram);
+    void OnProcessingFailed(const QString& error);
 
    private:
     void CreateActions();
@@ -38,28 +46,27 @@ class MainWindow : public QMainWindow {
     void AdjustScrollBar(QScrollBar* scroll_bar, double zoom_change);
     void UpdateFitZoom();
     void CreateEditDock();
-    void ProcessImage();
+    void RequestProcessImage();
+    void OnDebounceTimeout();
+    void ResetSliders();
     void QueueImageRefresh();
     void ConnectSlider(MySlider* slider, std::function<void(float)> value_changed);
     void HandleWheelEvent(QWheelEvent* event);
     void HandleMousePressEvent(QMouseEvent* event);
     void HandleMouseReleaseEvent(QMouseEvent* event);
     void HandleMouseMoveEvent(QMouseEvent* event);
-    MySlider* CreateAdjustmentSlider(QWidget* parent, const QString& label, QVBoxLayout* layout);
+    auto CreateAdjustmentSlider(QWidget* parent, const QString& label, QVBoxLayout* layout) -> MySlider*;
 
     QImage _fullSizeImage;
     QImage _scaledImage;
     QLabel* _imageLabel;
     QScrollArea* _scrollArea;
-    double _zoom = 1;
-    double _fit_zoom = 1;
 
     QAction* _zoomInAct;
     QAction* _zoomOutAct;
     QAction* _normalSizeAct;
     QAction* _fitToWindowAct;
 
-    bool _isDragging = false;
     QPoint _lastDragPos;
     QTimer* _refreshTimer;
 
@@ -67,19 +74,27 @@ class MainWindow : public QMainWindow {
     MySlider* _exposureSlider;
     MySlider* _contrastSlider;
     MySlider* _saturationSlider;
+    std::vector<MySlider*> _sliders;
 
-    std::unique_ptr<LibRaw> _currentRaw;
+    QDockWidget* _histogramDock;
+    HistogramWidget* _histogramWidget;
+
     brightroom::Parameters _parameters{};
-    std::unique_ptr<brightroom::IRawPipeline> _pipeline;
 
-    // Add these constants
+    // Background processing
+    QThread* _workerThread;
+    ImageProcessorWorker* _imageProcessorWorker;
+    bool _processingInProgress = false;
+    bool _newImage = false;
+
+    bool _isDragging = false;
+    double _zoom = 1;
+    double _fit_zoom = 1;
+
     static constexpr double kZoomInFactor = 1.25;
     static constexpr double kZoomOutFactor = 0.8;
     static constexpr int kSliderTickInterval = 50;
     static constexpr int kSliderRangeMin = -150;
     static constexpr int kSliderRangeMax = 150;
     static constexpr int kDebounceDelayMs = 100;
-
-    QDockWidget* _histogramDock;
-    HistogramWidget* _histogramWidget;
 };

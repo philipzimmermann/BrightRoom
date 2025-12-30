@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QMetaType>
 #include <array>
 #include <cstdint>
 #include <vector>
@@ -31,3 +32,7 @@ struct RawFile {
     int height;
 };
 }  // namespace brightroom
+
+// Register types with Qt's meta-type system for use in signals/slots
+Q_DECLARE_METATYPE(brightroom::RgbImage)
+Q_DECLARE_METATYPE(brightroom::Histogram)

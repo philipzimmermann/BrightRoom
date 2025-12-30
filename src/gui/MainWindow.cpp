@@ -21,13 +21,12 @@
 #include <QStackedWidget>
 #include <QStandardPaths>
 #include <QStatusBar>
+#include <QThread>
 #include <QTimer>
 #include <QVBoxLayout>
-#include <iostream>
-#include "RawLoader.h"
 
 MainWindow::MainWindow(QWidget* parent, std::unique_ptr<brightroom::IRawPipeline> pipeline)
-    : QMainWindow(parent), _imageLabel(new QLabel), _scrollArea(new QScrollArea), _pipeline(std::move(pipeline)) {
+    : QMainWindow(parent), _imageLabel(new QLabel), _scrollArea(new QScrollArea) {
     setWindowTitle("BrightRoom");
     _imageLabel->setBackgroundRole(QPalette::Base);
     _imageLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Ignored);
@@ -45,13 +44,47 @@ MainWindow::MainWindow(QWidget* parent, std::unique_ptr<brightroom::IRawPipeline
     _refreshTimer = new QTimer(this);
     _refreshTimer->setSingleShot(true);
     _refreshTimer->setInterval(kDebounceDelayMs);
-    connect(_refreshTimer, &QTimer::timeout, this, &MainWindow::ProcessImage);
+    connect(_refreshTimer, &QTimer::timeout, this, &MainWindow::OnDebounceTimeout);
+
+    // Setup background processing worker thread
+    _workerThread = new QThread(this);
+    _imageProcessorWorker = new ImageProcessorWorker(std::move(pipeline));
+    _imageProcessorWorker->moveToThread(_workerThread);
+
+    // Connect MainWindow signal to worker slot (queued connection for thread safety)
+    connect(this, &MainWindow::LoadRawRequested, _imageProcessorWorker, &ImageProcessorWorker::LoadRaw,
+            Qt::QueuedConnection);
+    connect(this, &MainWindow::ProcessImageRequested, _imageProcessorWorker, &ImageProcessorWorker::ProcessImage,
+            Qt::QueuedConnection);
+
+    // Connect worker signals to MainWindow slots
+    connect(_imageProcessorWorker, &ImageProcessorWorker::ImageProcessed, this, &MainWindow::OnImageProcessed,
+            Qt::QueuedConnection);
+    connect(_imageProcessorWorker, &ImageProcessorWorker::ProcessingFailed, this, &MainWindow::OnProcessingFailed,
+            Qt::QueuedConnection);
+
+    // Start the worker thread
+    _workerThread->start();
 
     CreateEditDock();
     CreateActions();
 
     resize(QGuiApplication::primaryScreen()->availableSize() * 3 / 5);
     QTimer::singleShot(0, this, [this]() { LoadRaw("/media/philip/Data SSD/photos/2025/07/21/P7210132.ORF"); });
+}
+
+MainWindow::~MainWindow() {
+    // Stop the worker thread gracefully
+    if (_workerThread != nullptr && _workerThread->isRunning()) {
+        _workerThread->quit();
+        constexpr int kThreadWaitTimeoutMs = 3000;
+        _workerThread->wait(kThreadWaitTimeoutMs);  // Wait up to 3 seconds for thread to finish
+        if (_workerThread->isRunning()) {
+            _workerThread->terminate();  // Force termination if needed
+            _workerThread->wait();
+        }
+    }
+    delete _imageProcessorWorker;  // Delete worker (it's not parented to the thread)
 }
 
 auto MainWindow::CreateAdjustmentSlider(QWidget* parent, const QString& label, QVBoxLayout* layout) -> MySlider* {
@@ -64,6 +97,8 @@ auto MainWindow::CreateAdjustmentSlider(QWidget* parent, const QString& label, Q
 
     layout->addWidget(slider_label);
     layout->addWidget(slider);
+
+    _sliders.push_back(slider);
 
     return slider;
 }
@@ -142,9 +177,9 @@ void MainWindow::CreateEditDock() {
 }
 
 // Helper method for connecting sliders
-void MainWindow::ConnectSlider(MySlider* slider, std::function<void(float)> valueChanged) {
-    connect(slider, &QSlider::valueChanged, this, [this, valueChanged, slider]() {
-        valueChanged(static_cast<float>(slider->value()));
+void MainWindow::ConnectSlider(MySlider* slider, std::function<void(float)> value_changed) {
+    connect(slider, &QSlider::valueChanged, this, [this, value_changed, slider]() {
+        value_changed(static_cast<float>(slider->value()));
         QueueImageRefresh();
     });
     connect(slider, &MySlider::doubleClicked, this, [this, slider]() {
@@ -158,12 +193,10 @@ void MainWindow::QueueImageRefresh() {
 }
 
 bool MainWindow::LoadRaw(const QString& fileName) {
-    brightroom::RawLoader loader{};
-    _currentRaw = loader.LoadRaw(fileName.toStdString());
+    ResetSliders();
 
-    _pipeline->Preprocess(*_currentRaw);
-    ProcessImage();
-    FitToWindow();
+    emit LoadRawRequested(fileName, _parameters);
+    _newImage = true;
 
     setWindowFilePath(fileName);
     const QString message = tr("Opened \"%1\", %2x%3, Depth: %4")
@@ -173,6 +206,13 @@ bool MainWindow::LoadRaw(const QString& fileName) {
                                 .arg(_fullSizeImage.depth());
     statusBar()->showMessage(message);
     return true;
+}
+
+void MainWindow::ResetSliders() {
+    _parameters = brightroom::Parameters{};
+    for (auto* slider : _sliders) {
+        slider->setValue(0);
+    }
 }
 
 void MainWindow::SetImage(const QImage& new_image) {
@@ -210,6 +250,12 @@ void MainWindow::ZoomOut() {
 void MainWindow::NormalSize() {
     _imageLabel->adjustSize();
     _zoom = 1.0;
+}
+
+auto CalculateFitZoom(const QSize& viewport_size, const QSize& image_size) -> double {
+    double scale_width = static_cast<double>(viewport_size.width()) / image_size.width();
+    double scale_height = static_cast<double>(viewport_size.height()) / image_size.height();
+    return std::min(scale_width, scale_height);
 }
 
 void MainWindow::UpdateFitZoom() {
@@ -343,24 +389,44 @@ void MainWindow::HandleMouseMoveEvent(QMouseEvent* event) {
     _lastDragPos = event->pos();
 }
 
-void MainWindow::ProcessImage() {
-    // TODO: This should run in a separate worker thread
-    if (!_currentRaw) {
-        return;
-    }
+void MainWindow::RequestProcessImage() {
+    // If processing is already in progress, we'll let the new request override it
+    // The debounce timer ensures we don't spam requests
+    _processingInProgress = true;
 
-    std::cout << "Generating image with params: " << _parameters.ToString() << std::endl;
-    auto processed_image = _pipeline->Process(*_currentRaw, _parameters);
-    auto histogram = _pipeline->GetHistogram();
+    // Emit signal to trigger processing in worker thread
+    emit ProcessImageRequested(_parameters);
+}
 
+void MainWindow::OnImageProcessed(brightroom::RgbImage image, brightroom::Histogram histogram) {
+    _processingInProgress = false;
+
+    // Update histogram
     _histogramWidget->updateHistogram(histogram);
 
-    const int bytes_per_line = processed_image.width * 3;
-    QImage new_image(processed_image.pixels.data(), processed_image.width, processed_image.height, bytes_per_line,
-                     QImage::Format::Format_RGB888);
+    // Create QImage from processed data
+    const int bytes_per_line = image.width * 3;
+    QImage new_image(image.pixels.data(), image.width, image.height, bytes_per_line, QImage::Format::Format_RGB888);
+
     if (new_image.isNull()) {
-        QMessageBox::information(this, QGuiApplication::applicationDisplayName(), tr("Cannot load %1: %2"));
+        QMessageBox::information(this, QGuiApplication::applicationDisplayName(),
+                                 tr("Cannot create image from processed data"));
         return;
     }
+
     SetImage(new_image);
+    if (_newImage) {
+        FitToWindow();
+        _newImage = false;
+    }
+}
+
+void MainWindow::OnDebounceTimeout() {
+    RequestProcessImage();
+    _newImage = false;
+}
+
+void MainWindow::OnProcessingFailed(const QString& error) {
+    _processingInProgress = false;
+    QMessageBox::warning(this, tr("Processing Error"), error);
 }

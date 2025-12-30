@@ -66,16 +66,6 @@ if(WIN32)
 endif()
 
 
-#CTest
-include(CTest)
-enable_testing()
-
-#CPack
-set(CPACK_PROJECT_NAME ${PROJECT_NAME})
-set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
-include(CPack)
-
-
 # GTest
 include(FetchContent)
 FetchContent_Declare(

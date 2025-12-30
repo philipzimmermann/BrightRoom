@@ -63,7 +63,7 @@ void HalideRawPipeline::Preprocess(LibRaw& raw_data) {
         }
     }
 
-    auto preprocessed_buffer = Halide::Runtime::Buffer<float>::make_interleaved(_width, _height, 3);
+    _preprocessed_buffer = Halide::Runtime::Buffer<float>::make_interleaved(_width, _height, 3);
     std::cout << "Running preprocess..." << "\n";
     step_start = Clock::now();
 
@@ -74,14 +74,12 @@ void HalideRawPipeline::Preprocess(LibRaw& raw_data) {
                                           cblack_buffer.raw_buffer(),                        // Per-channel black levels
                                           static_cast<int>(raw_data.imgdata.color.maximum),  // White level
                                           wb_factors.raw_buffer(),                           // White balance factors
-                                          preprocessed_buffer.raw_buffer());
+                                          _preprocessed_buffer.raw_buffer());
     if (error != 0) {
         std::cout << "Preprocess error: " << error << "\n";
     }
     std::cout << "Preprocess time: " << std::chrono::duration_cast<Duration>(Clock::now() - step_start).count() << " ms"
               << "\n";
-
-    _preprocessed_buffer = std::move(preprocessed_buffer);
 
     step_start = Clock::now();
     // Allocate vector and Halide buffer for the final image output
