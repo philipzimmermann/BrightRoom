@@ -25,7 +25,6 @@ target_link_libraries(pipeline
     PRIVATE Qt6::Widgets
     PUBLIC libraw::libraw
     PRIVATE ${OpenCV_LIBS}
-    PUBLIC Halide::Halide
     PRIVATE preprocess_raw_generator
     PRIVATE process_raw_generator
     PRIVATE histogram_generator
@@ -33,4 +32,4 @@ target_link_libraries(pipeline
     PUBLIC common
     TracyClient)
     
-target_include_directories(pipeline PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(pipeline PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/thirdparty/halide/include)

@@ -76,10 +76,11 @@ jobs:
       - name: Install Qt6
         uses: jurplel/install-qt-action@v4
         with:
-          version: '6.9.1'
-          modules: 'qtbase'
+          version: '6.8.3'
+          host: 'windows'
+          target: 'desktop'
           arch: 'win64_msvc2022_64'
-          cache: true
+          cache: 'true'
 
       - name: Set up vcpkg
         uses: lukka/run-vcpkg@v11
