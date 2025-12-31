@@ -34,6 +34,16 @@ jobs:
           chmod +x scripts/fetch_halide.sh
           ./scripts/fetch_halide.sh
 
+      - name: Cache CMake build
+        uses: actions/cache@v4
+        with:
+          path: |
+            build
+            thirdparty/halide
+          key: ${{ runner.os }}-cmake-${{ hashFiles('**/CMakeLists.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-cmake-
+
       - name: Configure CMake
         run: |
           mkdir -p build/Release
@@ -84,6 +94,8 @@ jobs:
 
       - name: Set up vcpkg
         uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgGitCommitId: 'latest'
 
       - name: Install dependencies via vcpkg
         run: |
