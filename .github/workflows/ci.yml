@@ -49,11 +49,20 @@ jobs:
           cd build/Release
           cmake --build . --config Release
 
+      - name: Collect shared libraries
+        run: |
+          mkdir -p build/Release/artifacts
+          cp build/Release/brightroom build/Release/artifacts/
+          # Copy LibRaw shared libraries (both files and follow symlinks)
+          find build/Release/submodules/thirdparty/LibRaw-cmake -name "*.so*" -exec cp -L {} build/Release/artifacts/ \;
+          echo "Artifacts collected:"
+          ls -lh build/Release/artifacts/
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: brightroom-linux
-          path: build/Release/brightroom
+          path: build/Release/artifacts/*
           if-no-files-found: error
 
   build-windows:
@@ -72,8 +81,8 @@ jobs:
           arch: 'win64_msvc2022_64'
           cache: true
 
-      - name: Install vcpkg
-        uses: microsoft/setup-vcpkg@v3
+      - name: Set up vcpkg
+        uses: lukka/run-vcpkg@v11
 
       - name: Install dependencies via vcpkg
         run: |
@@ -152,10 +161,39 @@ jobs:
             exit 1
           }
 
+      - name: Collect DLLs and executable
+        shell: pwsh
+        id: collect-dlls
+        run: |
+          $exePath = "${{ steps.find-exe.outputs.path }}"
+          $exeDir = Split-Path -Parent $exePath
+          $artifactsDir = "build/Release/artifacts"
+          New-Item -ItemType Directory -Force -Path $artifactsDir | Out-Null
+          
+          # Copy executable
+          Copy-Item $exePath -Destination $artifactsDir
+          
+          # Copy all DLLs from the executable directory
+          Get-ChildItem -Path $exeDir -Filter "*.dll" | ForEach-Object {
+            Copy-Item $_.FullName -Destination $artifactsDir
+            Write-Host "Copied DLL: $($_.Name)"
+          }
+          
+          # Also check LibRaw-cmake directory for DLLs
+          $librawDllPath = "build/Release/submodules/thirdparty/LibRaw-cmake/raw.dll"
+          if (Test-Path $librawDllPath) {
+            Copy-Item $librawDllPath -Destination $artifactsDir
+            Write-Host "Copied LibRaw DLL: raw.dll"
+          }
+          
+          Write-Host "Artifacts collected:"
+          Get-ChildItem -Path $artifactsDir | Select-Object Name, Length
+          echo "artifactsDir=$artifactsDir" >> $env:GITHUB_OUTPUT
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: brightroom-windows
-          path: ${{ steps.find-exe.outputs.path }}
+          path: ${{ steps.collect-dlls.outputs.artifactsDir }}/*
           if-no-files-found: error
 
