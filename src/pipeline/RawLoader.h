@@ -8,7 +8,7 @@ namespace brightroom {
 
 class RawLoader {
    public:
-    std::unique_ptr<LibRaw> LoadRaw(const std::string& file_name);
+    auto LoadRaw(const std::string& file_name) -> std::unique_ptr<LibRaw>;
 
    private:
     int _cache;

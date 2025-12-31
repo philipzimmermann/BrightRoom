@@ -191,22 +191,6 @@ void MainWindow::QueueImageRefresh() {
     _refreshTimer->start();
 }
 
-bool MainWindow::LoadRaw(const QString& fileName) {
-    ResetSliders();
-
-    emit LoadRawRequested(fileName, _parameters);
-    _newImage = true;
-
-    setWindowFilePath(fileName);
-    const QString message = tr("Opened \"%1\", %2x%3, Depth: %4")
-                                .arg(QDir::toNativeSeparators(fileName))
-                                .arg(_fullSizeImage.width())
-                                .arg(_fullSizeImage.height())
-                                .arg(_fullSizeImage.depth());
-    statusBar()->showMessage(message);
-    return true;
-}
-
 void MainWindow::ResetSliders() {
     _parameters = brightroom::Parameters{};
     for (auto* slider : _sliders) {
@@ -215,10 +199,17 @@ void MainWindow::ResetSliders() {
 }
 
 void MainWindow::SetImage(const QImage& new_image) {
-    _fullSizeImage = new_image;
+    _fullSizeImage = new_image.copy();
     if (_fullSizeImage.colorSpace().isValid()) {
         _fullSizeImage.convertToColorSpace(QColorSpace::SRgb);
     }
+    const QString message = tr("Opened \"%1\", %2x%3, Depth: %4")
+                                .arg(QDir::toNativeSeparators(_openFileName))
+                                .arg(_fullSizeImage.width())
+                                .arg(_fullSizeImage.height())
+                                .arg(_fullSizeImage.depth());
+    statusBar()->showMessage(message);
+
     _imageLabel->setPixmap(QPixmap::fromImage(_fullSizeImage));
     _imageLabel->adjustSize();
     _fitToWindowAct->setEnabled(true);
@@ -235,7 +226,32 @@ void MainWindow::Open() {
     QFileDialog dialog(this, tr("Open RAW File"));
     InitializeLoadRawFileDialog(dialog);
 
-    while (dialog.exec() == QDialog::Accepted && !LoadRaw(dialog.selectedFiles().constFirst())) {}
+    if (dialog.exec() != QDialog::Accepted) {
+        return;
+    }
+    ResetSliders();
+
+    const auto file_name = dialog.selectedFiles().constFirst();
+    emit LoadRawRequested(file_name, _parameters);
+    _openFileName = file_name;
+    _newImage = true;
+
+    setWindowFilePath(file_name);
+}
+
+void MainWindow::SaveAs() {
+    QString default_file_name = QFileInfo(_openFileName).baseName() + ".JPG";
+    QString file_name =
+        QFileDialog::getSaveFileName(this, "Save Image", default_file_name, "JPEG Image (*.jpg *.jpeg)");
+    if (file_name.isEmpty()) {
+        return;
+    }
+    qDebug("Saving image as %s", file_name.toStdString().c_str());
+    SaveImage(file_name);
+}
+
+void MainWindow::SaveImage(const QString& file_name) {
+    _fullSizeImage.save(file_name, "jpg", -1);
 }
 
 void MainWindow::ZoomIn() {
@@ -281,6 +297,10 @@ void MainWindow::CreateActions() {
 
     QAction* open_act = file_menu->addAction(tr("&Open..."), this, &MainWindow::Open);
     open_act->setShortcut(QKeySequence::Open);
+
+    _saveAct = file_menu->addAction(tr("&Save as..."), this, &MainWindow::SaveAs);
+    _saveAct->setShortcut(QKeySequence::Save);
+    _saveAct->setEnabled(false);
 
     file_menu->addSeparator();
 
@@ -418,6 +438,7 @@ void MainWindow::OnImageProcessed(brightroom::RgbImage image, brightroom::Histog
         FitToWindow();
         _newImage = false;
     }
+    _saveAct->setEnabled(true);
 }
 
 void MainWindow::OnDebounceTimeout() {

@@ -95,15 +95,16 @@ brightroom::RawFile CreateRawFile(LibRaw& _iProcessor) {
 
 namespace brightroom {
 
-std::unique_ptr<LibRaw> RawLoader::LoadRaw(const std::string& file_name) {
+auto RawLoader::LoadRaw(const std::string& file_name) -> std::unique_ptr<LibRaw> {
     ZoneScoped;
     std::cout << "Loading RAW" << std::endl;
     auto i_processor = std::make_unique<LibRaw>();
 
-    // Let us create an image processor
-
     // Open the file and read the metadata
-    i_processor->open_file(file_name.c_str());
+    if (auto error = i_processor->open_file(file_name.c_str()); error != LibRaw_errors::LIBRAW_SUCCESS) {
+        std::cout << "error:" << error << std::endl;
+        return nullptr;
+    };
 
     // The metadata are accessible through data fields of the class
     printf("Image size: %d x %d\n", i_processor->imgdata.sizes.width, i_processor->imgdata.sizes.height);
@@ -111,11 +112,11 @@ std::unique_ptr<LibRaw> RawLoader::LoadRaw(const std::string& file_name) {
            i_processor->imgdata.rawdata.sizes.width, i_processor->imgdata.rawdata.sizes.iwidth);
 
     // Fills _iProcessor.rawdata.raw_image
-    i_processor->unpack();
-
-    if (i_processor->unpack_thumb() != LibRaw_errors::LIBRAW_SUCCESS) {
-        std::cout << "error:" << i_processor->unpack_thumb() << std::endl;
+    if (auto error = i_processor->unpack(); error != LibRaw_errors::LIBRAW_SUCCESS) {
+        std::cout << "error:" << error << std::endl;
+        return nullptr;
     };
+
     std::cout << "Read Raw Image" << std::endl;
     return i_processor;
 }

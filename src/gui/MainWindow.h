@@ -19,8 +19,6 @@ class MainWindow : public QMainWindow {
    public:
     MainWindow(QWidget* parent, std::unique_ptr<brightroom::IRawPipeline> pipeline);
     ~MainWindow();
-    bool LoadImage(const QString&);
-    bool LoadRaw(const QString&);
 
    protected:
     bool eventFilter(QObject* obj, QEvent* event) override;
@@ -32,6 +30,7 @@ class MainWindow : public QMainWindow {
 
    private slots:
     void Open();
+    void SaveAs();
     void ZoomIn();
     void ZoomOut();
     void NormalSize();
@@ -40,6 +39,7 @@ class MainWindow : public QMainWindow {
     void OnProcessingFailed(const QString& error);
 
    private:
+    void SaveImage(const QString& file_name);
     void CreateActions();
     void SetImage(const QImage& new_image);
     void ScaleImage(double requested_zoom);
@@ -62,6 +62,7 @@ class MainWindow : public QMainWindow {
     QLabel* _imageLabel;
     QScrollArea* _scrollArea;
 
+    QAction* _saveAct;
     QAction* _zoomInAct;
     QAction* _zoomOutAct;
     QAction* _normalSizeAct;
@@ -86,6 +87,7 @@ class MainWindow : public QMainWindow {
     ImageProcessorWorker* _imageProcessorWorker;
     bool _processingInProgress = false;
     bool _newImage = false;
+    QString _openFileName;
 
     bool _isDragging = false;
     double _zoom = 1;

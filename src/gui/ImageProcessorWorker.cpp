@@ -9,6 +9,11 @@ ImageProcessorWorker::~ImageProcessorWorker() {}
 
 void ImageProcessorWorker::LoadRaw(const QString& fileName, const brightroom::Parameters& parameters) {
     _raw_data = _raw_loader.LoadRaw(fileName.toStdString());
+    if (!_raw_data) {
+        std::cout << "Worker thread: Failed to load raw data" << std::endl;
+        emit ProcessingFailed("Failed to load raw data");
+        return;
+    }
     std::cout << "Worker thread: Loaded raw data with width: " << _raw_data->imgdata.sizes.width
               << " and height: " << _raw_data->imgdata.sizes.height << std::endl;
     _pipeline->Preprocess(*_raw_data);
@@ -28,4 +33,3 @@ void ImageProcessorWorker::ProcessImage(const brightroom::Parameters& parameters
 
     emit ImageProcessed(std::move(processed_image), histogram);
 }
-
