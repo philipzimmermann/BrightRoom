@@ -62,7 +62,6 @@ if(WIN32)
       $<TARGET_FILE_DIR:${PROJECT_NAME}>)                 # <--this is out-file path
 endif()
 
-
 # GTest
 include(FetchContent)
 FetchContent_Declare(

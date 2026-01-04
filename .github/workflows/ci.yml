@@ -114,8 +114,6 @@ jobs:
           cmake ../.. `
             -G Ninja `
             -DCMAKE_BUILD_TYPE=Release `
-            -DCMAKE_C_COMPILER=clang-cl `
-            -DCMAKE_CXX_COMPILER=clang-cl `
             -DCMAKE_PREFIX_PATH="$Qt6_DIR" `
 
       - name: Build
