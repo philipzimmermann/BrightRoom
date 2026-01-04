@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.13.0)
+cmake_minimum_required(VERSION 3.14.0)
 
 project(brightroom VERSION 0.1.0 LANGUAGES CXX)
 
@@ -70,6 +70,10 @@ FetchContent_Declare(
 )
 # For Windows: Prevent overriding the parent project's compiler/linker settings
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+# Force static libraries on Windows to avoid DLL symbol export issues
+if(WIN32)
+  set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+endif()
 
 FetchContent_MakeAvailable(googletest)
 enable_testing()
