@@ -92,14 +92,14 @@ jobs:
           arch: 'win64_msvc2022_64'
           cache: 'true'
 
-      - name: Set up vcpkg
-        uses: lukka/run-vcpkg@v11
-        with:
-          vcpkgGitCommitId: 'latest'
+      # - name: Set up vcpkg
+      #   uses: lukka/run-vcpkg@v11
+      #   with:
+      #     vcpkgGitCommitId: 'latest'
 
-      - name: Install dependencies via vcpkg
-        run: |
-          vcpkg install opencv jpeg-turbo --triplet x64-windows
+      # - name: Install dependencies via vcpkg
+      #   run: |
+      #     vcpkg install opencv jpeg-turbo --triplet x64-windows
 
       - name: Install Ninja
         uses: seanmiddleditch/gha-setup-ninja@master
