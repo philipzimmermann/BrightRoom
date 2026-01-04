@@ -102,10 +102,8 @@ jobs:
 
       - name: Setup vcpkg
         uses: lukka/run-vcpkg@v11
-
-      - name: Install libjpeg
-        run: |
-          vcpkg install libjpeg-turbo:x64-windows
+        with:
+          runVcpkgInstall: true
 
       - name: Fetch Halide
         shell: pwsh
