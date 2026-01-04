@@ -100,6 +100,13 @@ jobs:
       - name: Install Ninja
         uses: seanmiddleditch/gha-setup-ninja@v5
 
+      - name: Setup vcpkg
+        uses: lukka/run-vcpkg@v11
+
+      - name: Install libjpeg
+        run: |
+          vcpkg install libjpeg-turbo:x64-windows
+
       - name: Fetch Halide
         shell: pwsh
         run: |
@@ -109,12 +116,14 @@ jobs:
         shell: pwsh
         run: |
           $Qt6_DIR = "$env:Qt6_DIR"
+          $vcpkgRoot = "$env:VCPKG_ROOT"
           mkdir -p build/Release
           cd build/Release
           cmake ../.. `
             -G Ninja `
             -DCMAKE_BUILD_TYPE=Release `
             -DCMAKE_PREFIX_PATH="$Qt6_DIR" `
+            -DCMAKE_TOOLCHAIN_FILE="$vcpkgRoot/scripts/buildsystems/vcpkg.cmake" `
 
       - name: Build
         shell: pwsh

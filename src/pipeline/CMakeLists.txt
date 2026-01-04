@@ -1,3 +1,5 @@
+find_package(JPEG REQUIRED)
+
 add_halide_generator(generator_target SOURCES halide/generators.cpp)
 
 add_halide_library(preprocess_raw_generator FROM generator_target
@@ -30,6 +32,7 @@ target_link_libraries(pipeline
     PRIVATE histogram_generator
     PRIVATE downsample_generator
     PUBLIC common
+    PRIVATE JPEG::JPEG
     TracyClient)
     
 target_include_directories(pipeline PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/thirdparty/halide/include)

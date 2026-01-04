@@ -25,7 +25,7 @@ struct jpegErrorManager {
     jmp_buf setjmp_buffer;
 };
 
-brightroom::RgbImage CreateThumbnail(const LibRaw& _iProcessor) {
+auto CreateThumbnail(const LibRaw& _iProcessor) -> brightroom::RgbImage {
     ZoneScoped;
     const auto& thumbnail = _iProcessor.imgdata.thumbnail;
     jpegErrorManager jerr;

@@ -10,3 +10,6 @@
 [submodule "submodules/thirdparty/tracy"]
 	path = submodules/thirdparty/tracy
 	url = https://github.com/wolfpld/tracy
+[submodule "submodules/thirdparty/vcpkg"]
+	path = submodules/thirdparty/vcpkg
+	url = https://github.com/microsoft/vcpkg
