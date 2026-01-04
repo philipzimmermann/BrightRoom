@@ -16,9 +16,6 @@ if(WIN32)
 endif()
 
 find_package(Qt6 REQUIRED COMPONENTS Widgets)
-find_package (JPEG REQUIRED)
-find_package(OpenCV REQUIRED )
-# find_package(OpenMP REQUIRED)
 
 if(WIN32 AND NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/halide/lib/Release/Halide.lib)
   message(STATUS "Halide not found, fetching...")

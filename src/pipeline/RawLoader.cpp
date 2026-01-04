@@ -1,7 +1,6 @@
 #include "RawLoader.h"
 
 #include <libraw/libraw.h>
-#include <opencv2/core/hal/interface.h>
 #include <qbytearrayview.h>
 #include <qpixmap.h>
 #include <qwindowdefs.h>
@@ -13,11 +12,6 @@
 #include <QImageReader>
 #include <cstdint>
 #include <iostream>
-#include <opencv2/core/core.hpp>
-#include <opencv2/core/types.hpp>
-#include <opencv2/highgui.hpp>
-#include <opencv2/imgcodecs.hpp>
-#include <opencv2/imgproc.hpp>
 #include "Tracy.hpp"
 #include "jpeglib.h"
 #include "libraw/libraw_const.h"
