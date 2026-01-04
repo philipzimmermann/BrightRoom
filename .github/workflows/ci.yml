@@ -76,7 +76,7 @@ jobs:
           if-no-files-found: error
 
   build-windows:
-    runs-on: windows-latest
+    runs-on: windows-2025
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -100,9 +100,6 @@ jobs:
       # - name: Install dependencies via vcpkg
       #   run: |
       #     vcpkg install opencv jpeg-turbo --triplet x64-windows
-
-      - name: Install Ninja
-        uses: seanmiddleditch/gha-setup-ninja@master
 
       - name: Install Clang
         uses: egor-tensin/setup-clang@v1
