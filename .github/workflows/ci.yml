@@ -185,13 +185,6 @@ jobs:
             Write-Host "Copied DLL: $($_.Name)"
           }
           
-          # Also check LibRaw-cmake directory for DLLs
-          $librawDllPath = "build/Release/submodules/thirdparty/LibRaw-cmake/raw.dll"
-          if (Test-Path $librawDllPath) {
-            Copy-Item $librawDllPath -Destination $artifactsDir
-            Write-Host "Copied LibRaw DLL: raw.dll"
-          }
-          
           Write-Host "Artifacts collected:"
           Get-ChildItem -Path $artifactsDir | Select-Object Name, Length
           echo "artifactsDir=$artifactsDir" >> $env:GITHUB_OUTPUT
