@@ -59,20 +59,11 @@ jobs:
           cd build/Release
           cmake --build . --config Release
 
-      - name: Collect shared libraries
-        run: |
-          mkdir -p build/Release/artifacts
-          cp build/Release/brightroom build/Release/artifacts/
-          # Copy LibRaw shared libraries (both files and follow symlinks)
-          find build/Release/submodules/thirdparty/LibRaw-cmake -name "*.so*" -exec cp -L {} build/Release/artifacts/ \;
-          echo "Artifacts collected:"
-          ls -lh build/Release/artifacts/
-
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: brightroom-linux
-          path: build/Release/artifacts/*
+          path: build/Release/brightroom
           if-no-files-found: error
 
   build-windows:
