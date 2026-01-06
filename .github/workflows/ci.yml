@@ -29,16 +29,15 @@ jobs:
             libjpeg-dev \
             ninja-build
 
-      - name: Cache CMake build and Halide
+      - name: Cache Halide
         uses: actions/cache@v4
         id: cache
         with:
           path: |
-            build
             thirdparty/halide
-          key: ${{ runner.os }}-cmake-${{ hashFiles('**/CMakeLists.txt', 'scripts/fetch_halide.sh') }}
+          key: ${{ runner.os }}-halide-${{ hashFiles('scripts/fetch_halide.sh') }}
           restore-keys: |
-            ${{ runner.os }}-cmake-
+            ${{ runner.os }}-halide-
 
       - name: Configure CMake
         run: |
@@ -80,24 +79,18 @@ jobs:
           arch: 'win64_msvc2022_64'
           cache: 'true'
 
-      - name: Install Clang
-        uses: egor-tensin/setup-clang@v1
-        with:
-          version: latest
-
       - name: Install Ninja
         uses: seanmiddleditch/gha-setup-ninja@v5
 
-      - name: Cache CMake build and Halide
+      - name: Cache Halide
         uses: actions/cache@v4
         id: cache
         with:
           path: |
-            build
             thirdparty/halide
-          key: ${{ runner.os }}-cmake-${{ hashFiles('**/CMakeLists.txt', 'scripts/fetch_halide.ps1') }}
+          key: ${{ runner.os }}-halide-${{ hashFiles('scripts/fetch_halide.ps1') }}
           restore-keys: |
-            ${{ runner.os }}-cmake-
+            ${{ runner.os }}-halide-
 
       - name: Setup vcpkg
         uses: lukka/run-vcpkg@v11
@@ -115,6 +108,8 @@ jobs:
             -G Ninja `
             -DCMAKE_BUILD_TYPE=Release `
             -DCMAKE_PREFIX_PATH="$Qt6_DIR" `
+            -DCMAKE_C_COMPILER="C:/PROGRAM FILES/MICROSOFT VISUAL STUDIO/2022/ENTERPRISE/VC/Tools/Llvm/x64/bin/clang.exe" `
+            -DCMAKE_CXX_COMPILER="C:/PROGRAM FILES/MICROSOFT VISUAL STUDIO/2022/ENTERPRISE/VC/Tools/Llvm/x64/bin/clang++.exe" `
             -DCMAKE_TOOLCHAIN_FILE="$vcpkgRoot/scripts/buildsystems/vcpkg.cmake" `
 
       - name: Build
