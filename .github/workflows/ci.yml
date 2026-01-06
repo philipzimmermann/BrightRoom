@@ -10,6 +10,7 @@ on:
 jobs:
   build-linux:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -26,21 +27,16 @@ jobs:
             libqt6widgets6 \
             qt6-base-dev \
             libjpeg-dev \
-            libopencv-dev \
             ninja-build
 
-      - name: Fetch Halide
-        run: |
-          chmod +x scripts/fetch_halide.sh
-          ./scripts/fetch_halide.sh
-
-      - name: Cache CMake build
+      - name: Cache CMake build and Halide
         uses: actions/cache@v4
+        id: cache
         with:
           path: |
             build
             thirdparty/halide
-          key: ${{ runner.os }}-cmake-${{ hashFiles('**/CMakeLists.txt') }}
+          key: ${{ runner.os }}-cmake-${{ hashFiles('**/CMakeLists.txt', 'scripts/fetch_halide.sh') }}
           restore-keys: |
             ${{ runner.os }}-cmake-
 
@@ -53,11 +49,11 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_COMPILER=clang \
             -DCMAKE_CXX_COMPILER=clang++
-
+      
       - name: Build
         run: |
           cd build/Release
-          cmake --build . --config Release
+          cmake --build .
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -68,6 +64,7 @@ jobs:
 
   build-windows:
     runs-on: windows-2025
+    timeout-minutes: 30
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -91,22 +88,28 @@ jobs:
       - name: Install Ninja
         uses: seanmiddleditch/gha-setup-ninja@v5
 
+      - name: Cache CMake build and Halide
+        uses: actions/cache@v4
+        id: cache
+        with:
+          path: |
+            build
+            thirdparty/halide
+          key: ${{ runner.os }}-cmake-${{ hashFiles('**/CMakeLists.txt', 'scripts/fetch_halide.ps1') }}
+          restore-keys: |
+            ${{ runner.os }}-cmake-
+
       - name: Setup vcpkg
         uses: lukka/run-vcpkg@v11
         with:
           runVcpkgInstall: true
-
-      - name: Fetch Halide
-        shell: pwsh
-        run: |
-          ./scripts/fetch_halide.ps1
 
       - name: Configure CMake
         shell: pwsh
         run: |
           $Qt6_DIR = "$env:Qt6_DIR"
           $vcpkgRoot = "$env:VCPKG_ROOT"
-          mkdir -p build/Release
+          mkdir -Force -p build/Release
           cd build/Release
           cmake ../.. `
             -G Ninja `
@@ -118,72 +121,12 @@ jobs:
         shell: pwsh
         run: |
           cd build/Release
-          cmake --build . --config Release
-
-      - name: Find executable
-        shell: pwsh
-        id: find-exe
-        run: |
-          # Try common locations for the executable
-          $possiblePaths = @(
-            "build/Release/brightroom.exe",
-            "build/Release/Release/brightroom.exe",
-            "build/Release/Debug/brightroom.exe"
-          )
-          
-          $exe = $null
-          foreach ($path in $possiblePaths) {
-            if (Test-Path $path) {
-              $exe = Resolve-Path $path
-              break
-            }
-          }
-          
-          # If not found in common locations, search recursively
-          if (-not $exe) {
-            $exe = Get-ChildItem -Path "build/Release" -Filter "brightroom.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
-            if ($exe) {
-              $exe = $exe.FullName
-            }
-          } else {
-            $exe = $exe.Path
-          }
-          
-          if ($exe) {
-            Write-Host "Found executable at: $exe"
-            echo "path=$exe" >> $env:GITHUB_OUTPUT
-          } else {
-            Write-Host "Executable not found, listing build directory:"
-            Get-ChildItem -Path "build/Release" -Recurse | Select-Object FullName
-            exit 1
-          }
-
-      - name: Collect DLLs and executable
-        shell: pwsh
-        id: collect-dlls
-        run: |
-          $exePath = "${{ steps.find-exe.outputs.path }}"
-          $exeDir = Split-Path -Parent $exePath
-          $artifactsDir = "build/Release/artifacts"
-          New-Item -ItemType Directory -Force -Path $artifactsDir | Out-Null
-          
-          # Copy executable
-          Copy-Item $exePath -Destination $artifactsDir
-          
-          # Copy all DLLs from the executable directory
-          Get-ChildItem -Path $exeDir -Filter "*.dll" | ForEach-Object {
-            Copy-Item $_.FullName -Destination $artifactsDir
-            Write-Host "Copied DLL: $($_.Name)"
-          }
-          
-          Write-Host "Artifacts collected:"
-          Get-ChildItem -Path $artifactsDir | Select-Object Name, Length
-          echo "artifactsDir=$artifactsDir" >> $env:GITHUB_OUTPUT
+          cmake --build .
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: brightroom-windows
-          path: ${{ steps.collect-dlls.outputs.artifactsDir }}/*
+          path: build/Release/brightroom.exe
           if-no-files-found: error
 

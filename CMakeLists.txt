@@ -19,12 +19,27 @@ find_package(Qt6 REQUIRED COMPONENTS Widgets)
 
 if(WIN32 AND NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/halide/lib/Release/Halide.lib)
   message(STATUS "Halide not found, fetching...")
-  execute_process(COMMAND ./scripts/fetch_halide.ps1
-  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+  execute_process(
+    COMMAND powershell -NoProfile -ExecutionPolicy Bypass -File "./scripts/fetch_halide.ps1"
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    OUTPUT_VARIABLE fetch_output
+    ERROR_VARIABLE fetch_error
+    RESULT_VARIABLE fetch_result
+    )
+  message(STATUS "fetch_output: ${fetch_output}")
+  message(STATUS "fetch_error: ${fetch_error}")
+  message(STATUS "fetch_result: ${fetch_result}")
+  if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/halide/lib/Release/Halide.lib")
+    message(STATUS "Halide.lib EXISTS")
+  else()
+      message(STATUS "Halide.lib DOES NOT exist")
+  endif()
 elseif(NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/halide/lib/libHalide.so)
   message(STATUS "Halide not found, fetching...")
   execute_process(COMMAND ./scripts/fetch_halide.sh
   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+else()
+  message(STATUS "Halide library found")
 endif()
 
 # Add Tracy profiler
