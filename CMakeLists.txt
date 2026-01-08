@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.13.0)
+cmake_minimum_required(VERSION 3.14.0)
 
 project(brightroom VERSION 0.1.0 LANGUAGES CXX)
 
@@ -16,18 +16,26 @@ if(WIN32)
 endif()
 
 find_package(Qt6 REQUIRED COMPONENTS Widgets)
-find_package (JPEG REQUIRED)
-find_package(OpenCV REQUIRED )
-# find_package(OpenMP REQUIRED)
 
 if(WIN32 AND NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/halide/lib/Release/Halide.lib)
   message(STATUS "Halide not found, fetching...")
-  execute_process(COMMAND ./scripts/fetch_halide.ps1
-  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+  execute_process(
+    COMMAND powershell -NoProfile -ExecutionPolicy Bypass -File "./scripts/fetch_halide.ps1"
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    )
+  if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/halide/lib/Release/Halide.lib")
+    message(STATUS "Halide.lib EXISTS")
+  else()
+      message(STATUS "Halide.lib DOES NOT exist")
+  endif()
 elseif(NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/halide/lib/libHalide.so)
   message(STATUS "Halide not found, fetching...")
-  execute_process(COMMAND ./scripts/fetch_halide.sh
-  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+  execute_process(
+    COMMAND ./scripts/fetch_halide.sh
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    )
+else()
+  message(STATUS "Halide library found")
 endif()
 
 # Add Tracy profiler
@@ -36,11 +44,13 @@ add_library(TracyClient STATIC submodules/thirdparty/tracy/public/TracyClient.cp
 target_include_directories(TracyClient PUBLIC submodules/thirdparty/tracy/public/tracy)
 target_compile_definitions(TracyClient PUBLIC TRACY_ENABLE=1)
 
-# LibRaw
+# LibRaw - build as static library
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries" FORCE)
 set(LIBRAW_PATH ${CMAKE_CURRENT_SOURCE_DIR}/submodules/thirdparty/LibRaw)
 add_subdirectory(submodules/thirdparty/LibRaw-cmake)
 
 # Halide
+set(BUILD_SHARED_LIBS ON CACHE BOOL "Build shared libraries" FORCE)
 set(Halide_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/halide/lib/cmake/Halide)
 find_package(Halide REQUIRED)
 
@@ -58,20 +68,19 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 
 # ------------------------------ Post-build ------------------------------
 
-if(WIN32)
-  add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD        # Adds a post-build event to MyTest
-  COMMAND ${CMAKE_COMMAND} -E copy_if_different  # which executes "cmake - E copy_if_different..."
-      "${PROJECT_BINARY_DIR}/submodules/thirdparty/LibRaw-cmake/raw.dll"      # <--this is in-file
-      $<TARGET_FILE_DIR:${PROJECT_NAME}>)                 # <--this is out-file path
-endif()
-
-
 # GTest
 include(FetchContent)
 FetchContent_Declare(
   googletest
-  URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
+  URL https://github.com/google/googletest/archive/refs/tags/v1.17.0.zip
 )
+# For Windows: Prevent overriding the parent project's compiler/linker settings
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+# Force static libraries on Windows to avoid DLL symbol export issues
+if(WIN32)
+  set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+endif()
+
 FetchContent_MakeAvailable(googletest)
 enable_testing()
 add_executable(

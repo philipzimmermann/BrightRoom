@@ -1,0 +1,127 @@
+name: CI
+
+on:
+  push:
+    branches: 
+      - dev
+      - add_ci
+  workflow_dispatch:
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            cmake \
+            clang \
+            libqt6widgets6 \
+            qt6-base-dev \
+            libjpeg-dev \
+            ninja-build
+
+      - name: Cache Halide
+        uses: actions/cache@v4
+        id: cache
+        with:
+          path: |
+            thirdparty/halide
+          key: ${{ runner.os }}-halide-${{ hashFiles('scripts/fetch_halide.sh') }}
+          restore-keys: |
+            ${{ runner.os }}-halide-
+
+      - name: Configure CMake
+        run: |
+          mkdir -p build/Release
+          cd build/Release
+          cmake ../.. \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER=clang \
+            -DCMAKE_CXX_COMPILER=clang++
+      
+      - name: Build
+        run: |
+          cd build/Release
+          cmake --build .
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: brightroom-linux
+          path: build/Release/brightroom
+          if-no-files-found: error
+
+  build-windows:
+    runs-on: windows-2025
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Qt6
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.3'
+          host: 'windows'
+          target: 'desktop'
+          arch: 'win64_msvc2022_64'
+          cache: 'true'
+
+      - name: Install Ninja
+        uses: seanmiddleditch/gha-setup-ninja@v5
+
+      - name: Cache Halide
+        uses: actions/cache@v4
+        id: cache
+        with:
+          path: |
+            thirdparty/halide
+          key: ${{ runner.os }}-halide-${{ hashFiles('scripts/fetch_halide.ps1') }}
+          restore-keys: |
+            ${{ runner.os }}-halide-
+
+      - name: Setup vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          runVcpkgInstall: true
+
+      - name: Configure CMake
+        shell: pwsh
+        run: |
+          $Qt6_DIR = "$env:Qt6_DIR"
+          $vcpkgRoot = "$env:VCPKG_ROOT"
+          mkdir -Force -p build/Release
+          cd build/Release
+          cmake ../.. `
+            -G Ninja `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_PREFIX_PATH="$Qt6_DIR" `
+            -DCMAKE_C_COMPILER="C:/PROGRAM FILES/MICROSOFT VISUAL STUDIO/2022/ENTERPRISE/VC/Tools/Llvm/x64/bin/clang.exe" `
+            -DCMAKE_CXX_COMPILER="C:/PROGRAM FILES/MICROSOFT VISUAL STUDIO/2022/ENTERPRISE/VC/Tools/Llvm/x64/bin/clang++.exe" `
+            -DCMAKE_TOOLCHAIN_FILE="$vcpkgRoot/scripts/buildsystems/vcpkg.cmake" `
+
+      - name: Build
+        shell: pwsh
+        run: |
+          cd build/Release
+          cmake --build .
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: brightroom-windows
+          path: build/Release/brightroom.exe
+          if-no-files-found: error
+
